@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.19)
+project(unit C)
+
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME} INTERFACE include)
+
+if (UNIT_TESTING)
+    enable_testing()
+
+    project(unit-test C)
+    add_executable(${PROJECT_NAME} test/main.c)
+    target_link_libraries(${PROJECT_NAME} PUBLIC unit)
+    add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
+
+    project(vector-example C)
+    add_executable(${PROJECT_NAME} example/vector.c)
+    target_link_libraries(${PROJECT_NAME} PUBLIC unit)
+    add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
+
+endif ()
