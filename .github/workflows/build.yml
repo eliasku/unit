@@ -1,16 +1,22 @@
 name: Build
+
 on: [push]
+
 jobs:
   build-cmake:
     name: Build
     runs-on: ubuntu-latest
+
+    env:
+      CC: clang
+      CXX: clang++
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DUNIT_TESTING=ON
 
       - name: Build
         run: cmake --build build
