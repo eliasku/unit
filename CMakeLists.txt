@@ -16,5 +16,6 @@ if (UNIT_TESTING)
     add_executable(${PROJECT_NAME} example/vector.c)
     target_link_libraries(${PROJECT_NAME} PUBLIC unit)
     add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
+    set_tests_properties(${PROJECT_NAME} PROPERTIES WILL_FAIL TRUE)
 
 endif ()
