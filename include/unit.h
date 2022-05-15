@@ -55,7 +55,7 @@ double unit_diff_time(struct timespec* t0, struct timespec* t1) {
 #define UNIT_MSG_TESTING "\n%s" "◆ " UNIT_COLOR_BOLD UNIT_COLOR_WHITE "Testing %s" UNIT_COLOR_RESET ":\n"
 #define UNIT_MSG_RUN "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s" UNIT_COLOR_RESET "\n"
 #define UNIT_MSG_SUCCESS "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Success: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "? " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "Ⅱ " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
 #define UNIT_MSG_FAILED "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
 
 #define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
@@ -65,6 +65,12 @@ double unit_diff_time(struct timespec* t0, struct timespec* t1) {
 //#define UNIT_MSG_DEBUG "%s# %s\n"
 
 #define UNIT_LOG_DEBUG(msg) printf(UNIT_MSG_DEBUG, unit_get_spaces(), msg)
+
+enum {
+    UNIT_STATUS_SUCCESS = 0,
+    UNIT_STATUS_SKIPPED = 1,
+    UNIT_STATUS_FAILED = 2
+};
 
 struct unit_test {
     const char* name;
@@ -120,7 +126,7 @@ static struct {
 static void unit_it_begin(const char* desc) {
     printf(UNIT_MSG_RUN, unit_get_spaces(), desc);
     unit_test_cur.state = 0;
-    unit_test_cur.status = 0;
+    unit_test_cur.status = UNIT_STATUS_SUCCESS;
     unit_timestamp(&unit_test_cur.t0);
     unit_test_cur.desc = desc;
     for (struct unit_test* u = unit_cur; u; u = u->parent) {
@@ -130,15 +136,22 @@ static void unit_it_begin(const char* desc) {
 }
 
 static const char* unit_get_status_msg(int status) {
-    if (status == 0) return UNIT_MSG_SUCCESS;
-    else if (status == 1) return UNIT_MSG_SKIPPED;
-    return UNIT_MSG_FAILED;
+    switch (status) {
+        case UNIT_STATUS_SUCCESS:
+            return UNIT_MSG_SUCCESS;
+        case UNIT_STATUS_SKIPPED:
+            return UNIT_MSG_SKIPPED;
+        case UNIT_STATUS_FAILED:
+            return UNIT_MSG_FAILED;
+        default:
+            return "";
+    }
 }
 
 static void unit_it_end(void) {
     const bool success = unit_test_cur.status == 0;
     for (struct unit_test* u = unit_cur; u; u = u->parent) {
-        if(success || u->allow_fail) {
+        if (success || u->allow_fail) {
             u->passed++;
         }
     }
@@ -146,7 +159,7 @@ static void unit_it_end(void) {
     struct timespec t1;
     unit_timestamp(&t1);
     double elapsed_time = unit_diff_time(&unit_test_cur.t0, &t1);
-    printf(unit_test_cur.status ? UNIT_MSG_FAILED : UNIT_MSG_SUCCESS, unit_get_spaces(), unit_test_cur.desc,
+    printf(unit_get_status_msg(unit_test_cur.status), unit_get_spaces(), unit_test_cur.desc,
            elapsed_time * 1000.0);
 
     --unit_depth;
@@ -246,7 +259,7 @@ int main(int argc, char** argv) {
 /** Assert functions **/
 
 #define UNIT_FAIL_IMPL(Flag, ...) do { \
-    unit_test_cur.status = 2;   \
+    unit_test_cur.status = UNIT_STATUS_FAILED;   \
     unit_test_cur.state |= Flag;   \
     printf("%s", unit_get_spaces_with(1));                        \
     printf(__VA_ARGS__);    \
