@@ -4,7 +4,7 @@ project(unit C)
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE include)
 
-if (UNIT_TESTING)
+if (UNIT_TESTING OR $ENV{CLION_IDE})
     enable_testing()
 
     project(unit-test C)

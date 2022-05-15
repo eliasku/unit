@@ -60,7 +60,9 @@ double unit_diff_time(struct timespec* t0, struct timespec* t1) {
 
 #define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
 
-#define UNIT_MSG_DEBUG "%s⚬ %s\n"
+//#define UNIT_MSG_DEBUG "%s💬 %s\n"
+#define UNIT_MSG_DEBUG "%s ⃫ %s\n"
+//#define UNIT_MSG_DEBUG "%s# %s\n"
 
 #define UNIT_LOG_DEBUG(msg) printf(UNIT_MSG_DEBUG, unit_get_spaces(), msg)
 
@@ -254,7 +256,7 @@ int main(int argc, char** argv) {
 
 #define _UNIT_ASSERT(Body, OnFail) do { \
     if((unit_test_cur.state & 2) == 2) {\
-        printf("%s⚬ Skip: %s\n", unit_get_spaces(), #Body);                                    \
+        printf("%sⅡ Skip: %s\n", unit_get_spaces(), #Body);                                    \
     } else if(Body) {                      \
         printf("%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n", unit_get_spaces(), #Body);     \
     } else {                          \
