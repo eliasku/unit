@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Необходимо для определения покрытия тестами
+      # llvm-profdata / llvm-cov
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v1
         if: runner.os == 'Linux'
