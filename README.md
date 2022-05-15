@@ -1,6 +1,7 @@
 # unit
 
-[![Build](https://github.com/eliasku/unit/actions/workflows/build.yml/badge.svg?branch=dev)](https://github.com/eliasku/unit/actions/workflows/build.yml)
+[![Build](https://github.com/eliasku/unit/actions/workflows/build.yml/badge.svg)](https://github.com/eliasku/unit/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/eliasku/unit/branch/master/graph/badge.svg?token=NFTrtCHQ2r)](https://codecov.io/gh/eliasku/unit)
 
 > Tiny unit testing library for C language
 
