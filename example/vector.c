@@ -44,7 +44,7 @@ void* vector_get(vector* vec, size_t idx) {
 
 #include <unit.h>
 
-describe(vector) {
+describe(vector, .allow_fail = true) {
     vector vec;
 
     it("breaks the rules of math (to demonstrate failed tests)") {

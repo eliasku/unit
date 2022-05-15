@@ -79,6 +79,7 @@ struct unit_test {
 
     int total;
     int passed;
+    bool allow_fail;
 };
 
 static const char* unit_spaces[8] = {
@@ -135,8 +136,9 @@ static const char* unit_get_status_msg(int status) {
 }
 
 static void unit_it_end(void) {
-    if (unit_test_cur.status == 0) {
-        for (struct unit_test* u = unit_cur; u; u = u->parent) {
+    const bool success = unit_test_cur.status == 0;
+    for (struct unit_test* u = unit_cur; u; u = u->parent) {
+        if(success || u->allow_fail) {
             u->passed++;
         }
     }
@@ -158,22 +160,19 @@ static void unit_it_end(void) {
 #define SOURCE_LOC __FILE__ ":" STRINGIZE(__LINE__)
 
 #define UNIT_ID(Name, Tag) unit_test_ ## Name ## _ ## Tag
-#define UNIT_DESCRIBE(Name) \
+#define UNIT_DESCRIBE(Name, ...) \
 void UNIT_ID(Name, main) (void); \
 static struct unit_test UNIT_ID(Name, data) = \
-(struct unit_test) {        \
-    .name = #Name,           \
-    .src = SOURCE_LOC, \
-    .fn = &UNIT_ID(Name, main), \
-};                          \
+(struct unit_test) { .name = #Name, .src = SOURCE_LOC, .fn = &UNIT_ID(Name, main), __VA_ARGS__ }; \
 __attribute__((constructor)) void UNIT_ID(Name, ctor)(void) { \
     UNIT_ID(Name, data).next = unit_tests;    \
     unit_tests = &UNIT_ID(Name, data); \
 }\
 void UNIT_ID(Name, main) (void)
 
-#define UNIT_SUB_DESC(Name) \
-static struct unit_test VAR(_u_) = (struct unit_test){.name = #Name, .src = SOURCE_LOC}; \
+#define UNIT_SUB_DESC(Name, ...) \
+static struct unit_test VAR(_u_) = \
+(struct unit_test){.name = #Name, .src = SOURCE_LOC, __VA_ARGS__}; \
 unit_begin(&VAR(_u_)); \
 for(int VAR(_i_) = 0; !VAR(_i_); ++VAR(_i_), unit_end(&VAR(_u_)))
 

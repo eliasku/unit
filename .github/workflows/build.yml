@@ -15,12 +15,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # Необходимо для определения покрытия тестами
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        if: runner.os == 'Linux'
+        with:
+          version: "10.0"
+
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DUNIT_TESTING=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Profiling -DUNIT_TESTING=ON -DCODE_COVERAGE=ON
 
       - name: Build
         run: cmake --build build
 
-      - name: Test
+      - name: Test & Coverage
         working-directory: ./build
-        run: ctest --verbose
+        run: make coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          files: ./build/coverage.txt
+          flags: unittests
+          verbose: true
