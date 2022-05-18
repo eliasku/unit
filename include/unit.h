@@ -11,6 +11,7 @@
 //#define UNIT_NO_TIME
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -101,6 +102,7 @@ enum {
     UNIT__OP_LE = 5,
     UNIT__OP_GT = 6,
     UNIT__OP_GE = 7,
+
     // не помечает тест неудачным, просто предупреждает
     UNIT__LEVEL_WARNING = 0,
     // проваливает тест, но продолжает выполнять другие проверки
@@ -328,36 +330,46 @@ static bool unit__prepare_assert(int level, const char* loc, const char* comment
 #define UNIT__ASSERT_LAZY(Assertion, Level, Comment, Description) \
 if(unit__prepare_assert(Level, UNIT__FILEPOS, Comment, Description)) Assertion
 
-#define UNIT__IS_TRUE(a) (!!(a))
-#define UNIT__IS_NOT_EMPTY_STR(a) ((a) && *(a) != '\0')
+#define UNIT__IS_TRUE(a, ...) (!!(a))
+#define UNIT__IS_NOT_EMPTY_STR(a, ...) ((a) && *(a) != '\0')
 #define UNIT__COMPARE_PRIMITIVE(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
 
-#define UNIT__DECLARE_UNARY_ASSERT(Tag, Type, FormatType, Pred) \
-static void unit__assert_unary_ ## Tag(Type x, int op) { \
-    bool pass = false;                                         \
-    const char* op_str = "";                                                    \
-    bool res = Pred(x); \
-    switch(op) {                                               \
-        case UNIT__OP_TRUE: pass = res; op_str = " true"; break; \
-        case UNIT__OP_FALSE: pass = !res; op_str = "is true"; break;            \
+#define UNIT__DECLARE_ASSERT(Tag, Type, FormatType, Cmp) \
+static void unit__assert_ ## Tag(Type a, Type b, int op) { \
+    bool pass = false; \
+    const char* op_str = ""; \
+    int res = Cmp(a, b); \
+    switch(op) { \
+        case UNIT__OP_TRUE: pass = res != 0; op_str = "is false"; break; \
+        case UNIT__OP_FALSE: pass = res == 0; op_str = "is true"; break; \
+        case UNIT__OP_EQ: pass = res == 0; op_str = "!="; break; \
+        case UNIT__OP_NE: pass = res != 0; op_str = "=="; break; \
+        case UNIT__OP_LT: pass = res < 0; op_str = ">="; break; \
+        case UNIT__OP_LE: pass = res <= 0; op_str = ">"; break; \
+        case UNIT__OP_GT: pass = res > 0; op_str = "<="; break; \
+        case UNIT__OP_GE: pass = res >= 0; op_str = "<"; break; \
         default: break; \
     } \
     if(pass) unit__print_assert(UNIT_STATUS_SUCCESS); \
     else { \
-        unit__print_assert(UNIT_STATUS_FAILED); \
-        unit__fail_impl("Assertion failed: " #FormatType " %s", x, op_str); \
+        unit__print_assert(UNIT_STATUS_FAILED);                 \
+        if(op < UNIT__OP_EQ)                                    \
+            unit__fail_impl("Assertion failed: " #FormatType " %s", a, op_str); \
+        else                                                    \
+            unit__fail_impl("Assertion failed: " #FormatType " %s " #FormatType, a, op_str, b); \
     } \
 }
 
-UNIT__DECLARE_UNARY_ASSERT(int, intmax_t, %jd, UNIT__IS_TRUE)
-
-UNIT__DECLARE_UNARY_ASSERT(uint, uintmax_t, %ju, UNIT__IS_TRUE)
-
-UNIT__DECLARE_UNARY_ASSERT(dbl, long double, %Lg, UNIT__IS_TRUE)
-
-UNIT__DECLARE_UNARY_ASSERT(ptr, const void*, %p, UNIT__IS_TRUE)
-
-UNIT__DECLARE_UNARY_ASSERT(str, const char*, %s, UNIT__IS_NOT_EMPTY_STR)
+UNIT__DECLARE_ASSERT(unary_int, intmax_t, %jd, UNIT__IS_TRUE)
+UNIT__DECLARE_ASSERT(unary_uint, uintmax_t, %ju, UNIT__IS_TRUE)
+UNIT__DECLARE_ASSERT(unary_dbl, long double, %Lg, UNIT__IS_TRUE)
+UNIT__DECLARE_ASSERT(unary_ptr, const void*, %p, UNIT__IS_TRUE)
+UNIT__DECLARE_ASSERT(unary_str, const char*, %s, UNIT__IS_NOT_EMPTY_STR)
+UNIT__DECLARE_ASSERT(binary_int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE)
+UNIT__DECLARE_ASSERT(binary_uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE)
+UNIT__DECLARE_ASSERT(binary_dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE)
+UNIT__DECLARE_ASSERT(binary_ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE)
+UNIT__DECLARE_ASSERT(binary_str, const char*, %s, strcmp)
 
 #define UNIT__SELECT_ASSERT_UNARY(x) \
     _Generic((x), \
@@ -374,37 +386,6 @@ UNIT__DECLARE_UNARY_ASSERT(str, const char*, %s, UNIT__IS_NOT_EMPTY_STR)
         long double: unit__assert_unary_dbl \
         )
 
-#define UNIT__DECLARE_BINARY_ASSERT(Tag, Type, FormatType, Cmp) \
-static void unit__assert_binary_ ## Tag(Type a, Type b, int op) { \
-    bool pass = false;                                         \
-    const char* op_str = "";                                                    \
-    int res = Cmp(a, b); \
-    switch(op) {                                               \
-        case UNIT__OP_EQ: pass = res == 0; op_str = "!="; break; \
-        case UNIT__OP_NE: pass = res != 0; op_str = "=="; break; \
-        case UNIT__OP_LT: pass = res < 0; op_str = ">="; break; \
-        case UNIT__OP_LE: pass = res <= 0; op_str = ">"; break; \
-        case UNIT__OP_GT: pass = res > 0; op_str = "<="; break; \
-        case UNIT__OP_GE: pass = res >= 0; op_str = "<"; break; \
-        default: break; \
-    } \
-    if(pass) unit__print_assert(UNIT_STATUS_SUCCESS); \
-    else { \
-        unit__print_assert(UNIT_STATUS_FAILED); \
-        unit__fail_impl("Assertion failed: " #FormatType " %s " #FormatType, a, op_str, b); \
-    } \
-}
-
-UNIT__DECLARE_BINARY_ASSERT(int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_BINARY_ASSERT(uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_BINARY_ASSERT(dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_BINARY_ASSERT(ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_BINARY_ASSERT(str, const char*, %s, strcmp)
-
 #define UNIT__SELECT_ASSERT_BINARY(x) \
     _Generic((x), \
         void*: unit__assert_binary_ptr, \
@@ -419,7 +400,7 @@ UNIT__DECLARE_BINARY_ASSERT(str, const char*, %s, strcmp)
         long double: unit__assert_binary_dbl \
         )
 
-#define UNIT__UNARY_ASSERT(Level, Op, x, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT_UNARY(x)(x, Op), Level, "" #comments, Desc)
+#define UNIT__UNARY_ASSERT(Level, Op, x, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT_UNARY(x)(x, 0, Op), Level, "" #comments, Desc)
 #define UNIT__BINARY_ASSERT(Level, Op, a, b, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT_BINARY(b)(a, b, Op), Level, "" #comments, Desc)
 
 #define UNIT_CHECK(x, ...)       UNIT__UNARY_ASSERT(UNIT__LEVEL_CHECK,  UNIT__OP_TRUE,  x, "check " #x, __VA_ARGS__)
@@ -440,7 +421,7 @@ UNIT__DECLARE_BINARY_ASSERT(str, const char*, %s, strcmp)
 #define UNIT_REQUIRE_LT(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LT, a, b, "require " #a " < " #b, __VA_ARGS__)
 #define UNIT_REQUIRE_LE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
 
-#define UNIT_SKIP() unit_test_cur.state |= 2
+#define UNIT_SKIP() unit_test_cur.state |= UNIT__LEVEL_REQUIRE
 
 /** Main **/
 
@@ -457,7 +438,7 @@ int main(int argc, char** argv) {
 }
 #endif
 
-/** shortcuts **/
+// region Короткие формы записи
 
 #define module(...) UNIT_MODULE(__VA_ARGS__)
 #define describe(...) UNIT_DESCRIBE(__VA_ARGS__)
@@ -483,5 +464,7 @@ int main(int argc, char** argv) {
 #define check_le(...) UNIT_CHECK_LE(__VA_ARGS__)
 
 #define skip(...) UNIT_SKIP(__VA_ARGS__)
+
+// endregion
 
 #endif // UNIT_H

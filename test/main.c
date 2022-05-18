@@ -22,9 +22,9 @@ module(unit) {
 
     describe(linear execution) {
         it("and could contains skip directive") {
-            require(!0, "done");
+            require(!0, done);
             skip();
-            require(0 != 1, "todo");
+            require(0 != 1, todo);
         }
     }
 
