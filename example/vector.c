@@ -44,7 +44,7 @@ void* vector_get(vector* vec, size_t idx) {
 
 #include <unit.h>
 
-module(vector, .allow_fail = true) {
+suite(vector, .allow_fail = true) {
     vector vec;
 
     it("breaks the rules of math (to demonstrate failed tests)") {
@@ -65,7 +65,7 @@ module(vector, .allow_fail = true) {
         vector_free(&vec);
     }
 
-#define it_vec(name) UNIT__SCOPE(\
+#define it_vec(name) UNIT_SCOPE( \
 /* before: */ vector_init(&vec, sizeof(int)), \
 /* after:  */ vector_free(&vec) \
 ) it(name)

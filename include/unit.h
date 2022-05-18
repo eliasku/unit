@@ -73,12 +73,12 @@ double unit__time(double prev) {
 
 #define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
 
-//#define UNIT_MSG_COMMENT "%s💬 %s\n"
-#define UNIT_MSG_COMMENT "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
-//#define UNIT_MSG_COMMENT "%s# %s\n"
+//#define UNIT_MSG_ECHO "%s💬 %s\n"
+#define UNIT_MSG_ECHO "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
+//#define UNIT_MSG_ECHO "%s# %s\n"
 
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
-#define UNIT_COMMENT(msg) UNIT_PRINTF(UNIT_MSG_COMMENT, unit__spaces(0), msg)
+#define UNIT_ECHO(msg) UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg)
 
 static char unit__tmp_buffer[1024];
 
@@ -206,32 +206,34 @@ static void unit_it_end(void) {
 // https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
 #define UNIT__STR(x) #x
 #define UNIT__X_STR(x) UNIT__STR(x)
+
 #define UNIT__CONCAT(a, b) a ## b
 #define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
+
 #define UNIT__FILEPOS __FILE__ ":" UNIT__X_STR(__LINE__)
-#define UNIT__SCOPE_BODY(begin, end, var) for (int var = (begin, 0); !var; ++var, end)
-#define UNIT__SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(_s, __COUNTER__))
 
-#define UNIT__MODULE_BODY(var, Name, ...) \
-void UNIT__CONCAT(var, _main) (void); \
-static struct unit_test UNIT__CONCAT(var, _data) = \
-(struct unit_test) { .name = #Name, .src = UNIT__FILEPOS, .fn = &UNIT__CONCAT(var, _main), __VA_ARGS__ }; \
-__attribute__((constructor)) void UNIT__CONCAT(var, _ctor)(void) { \
-    UNIT__CONCAT(var, _data).next = unit_tests;    \
-    unit_tests = &UNIT__CONCAT(var, _data); \
-} \
-void UNIT__CONCAT(var, _main) (void)
+#define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
+#define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
-#define UNIT_MODULE(Name, ...) UNIT__MODULE_BODY(UNIT__X_CONCAT(UNIT__CONCAT(unit__, Name), __COUNTER__), Name, __VA_ARGS__)
+#define UNIT__SUITE(Var, Name, ...) \
+    void UNIT__CONCAT(Var, _main) (void); \
+    static struct unit_test UNIT__CONCAT(Var, _data) = \
+    (struct unit_test) { .name = #Name, .src = UNIT__FILEPOS, .fn = &UNIT__CONCAT(Var, _main), __VA_ARGS__ }; \
+    __attribute__((constructor)) void UNIT__CONCAT(Var, _ctor)(void) { \
+        UNIT__CONCAT(Var, _data).next = unit_tests;    \
+        unit_tests = &UNIT__CONCAT(Var, _data); \
+    } \
+    void UNIT__CONCAT(Var, _main) (void)
 
-#define UNIT__DESCRIBE(var, Name, ...) \
-static struct unit_test var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-UNIT__SCOPE(unit_begin(&var), unit_end(&var))
+#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(UNIT__CONCAT(unit__, Name), __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(_u_, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT__DESCRIBE(Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+    UNIT_SCOPE(unit_begin(&Var), unit_end(&Var))
 
-#define UNIT_IT(Description) \
-UNIT__SCOPE(unit_it_begin(Description), unit_it_end())
+#define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
+
+#define UNIT_IT(Description) UNIT_SCOPE(unit_it_begin(Description), unit_it_end())
 
 static bool unit_prev_print_results = false;
 
@@ -440,10 +442,11 @@ int main(int argc, char** argv) {
 
 // region Короткие формы записи
 
-#define module(...) UNIT_MODULE(__VA_ARGS__)
+#define suite(...) UNIT_SUITE(__VA_ARGS__)
 #define describe(...) UNIT_DESCRIBE(__VA_ARGS__)
 #define it(...) UNIT_IT(__VA_ARGS__)
-#define comment(...) UNIT_COMMENT(__VA_ARGS__)
+#define test(...) UNIT_IT(__VA_ARGS__)
+#define echo(...) UNIT_ECHO(__VA_ARGS__)
 
 #define require(...) UNIT_REQUIRE(__VA_ARGS__)
 #define require_false(...) UNIT_REQUIRE_FALSE(__VA_ARGS__)
