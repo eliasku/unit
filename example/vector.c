@@ -44,91 +44,68 @@ void* vector_get(vector* vec, size_t idx) {
 
 #include <unit.h>
 
-describe(vector, .allow_fail = true) {
+module(vector, .allow_fail = true) {
     vector vec;
 
     it("breaks the rules of math (to demonstrate failed tests)") {
-        assert(1 == 2, "Oh noes!");
+        require(1 == 2, Oh, noes!);
         // these checks will be skipped after previous fail
-        asserteq(vector_get(&vec, 101), NULL);
-        asserteq(vec.elem_size, 53);
+        require_eq(vector_get(&vec, 101), NULL);
+        require_eq(vec.elem_size, 53);
     }
-
-//        after_each() {
-//            vector_free(&vec);
-//        }
 
     it("inits vectors correctly") {
         vector_init(&vec, 53);
 
-        asserteq(vec.size, 0);
-        asserteq(vec.count, 0);
-        asserteq(vec.elem_size, 53);
-        asserteq(vec.size, 0);
+        require_eq(vec.size, 0);
+        require_eq(vec.count, 0);
+        require_eq(vec.elem_size, 53);
+        require_eq(vec.size, 0);
 
         vector_free(&vec);
     }
 
-    //before_each() {
-    //    vector_init(&vec, sizeof(int));
-    //}
+#define it_vec(name) UNIT__SCOPE(\
+/* before: */ vector_init(&vec, sizeof(int)), \
+/* after:  */ vector_free(&vec) \
+) it(name)
 
-    it("allocates vectors based on elem_size") {
-        vector_init(&vec, sizeof(int));
+    it_vec("allocates vectors based on elem_size") {
+            vector_alloc(&vec, 10);
+            require_eq(vec.elem_size, sizeof(int));
+            require_eq(vec.count, 0);
+            require(vec.size >= 10);
+            /* Not an assert, but will cause valgrind to complain
+             * if not enough memory was allocated */
+            memset(vec.elems, 0xff, 10 * vec.elem_size);
+        }
 
-        vector_alloc(&vec, 10);
-        asserteq(vec.elem_size, sizeof(int));
-        asserteq(vec.count, 0);
-        assert(vec.size >= 10);
-        /* Not an assert, but will cause valgrind to complain
-         * if not enough memory was allocated */
-        memset(vec.elems, 0xff, 10 * vec.elem_size);
+    describe(vector_set) {
+        it_vec("sets values inside of the allocated range") {
+                vector_alloc(&vec, 2);
+                int el = 10;
+                vector_set(&vec, 1, &el);
+                require_eq(*(int*) ((char*) vec.elems + sizeof(int)), 10);
+            }
 
-        vector_free(&vec);
+        it_vec("allocates space when setting values outside the allocated range") {
+                int el = 10;
+                vector_set(&vec, 50, &el);
+                require_eq(*(int*) ((char*) vec.elems + (sizeof(int) * 50)), 10);
+            }
     }
 
-    subdesc(vector_set) {
-        it("sets values inside of the allocated range") {
-            vector_init(&vec, sizeof(int));
+    describe(vector_get) {
+        it_vec("gets values inside the allocated range") {
+                int el = 500;
+                vector_set(&vec, 10, &el);
+                require_eq(*(int*) vector_get(&vec, 10), 500);
+            }
 
-            vector_alloc(&vec, 2);
-            int el = 10;
-            vector_set(&vec, 1, &el);
-            asserteq(*(int*) ((char*) vec.elems + sizeof(int)), 10);
-
-            vector_free(&vec);
-        }
-
-        it("allocates space when setting values outside the allocated range") {
-            vector_init(&vec, sizeof(int));
-
-            int el = 10;
-            vector_set(&vec, 50, &el);
-            asserteq(*(int*) ((char*) vec.elems + (sizeof(int) * 50)), 10);
-
-            vector_free(&vec);
-        }
-    }
-
-    subdesc(vector_get) {
-        it("gets values inside the allocated range") {
-            vector_init(&vec, sizeof(int));
-
-            int el = 500;
-            vector_set(&vec, 10, &el);
-            asserteq(*(int*) vector_get(&vec, 10), 500);
-
-            vector_free(&vec);
-        }
-
-        it("returns NULL when trying to access values outside the allocated range") {
-            vector_init(&vec, sizeof(int));
-
-            int el = 10;
-            vector_set(&vec, 100, &el);
-            asserteq(vector_get(&vec, 101), NULL);
-
-            vector_free(&vec);
-        }
+        it_vec("returns NULL when trying to access values outside the allocated range") {
+                int el = 10;
+                vector_set(&vec, 100, &el);
+                require_eq(vector_get(&vec, 101), NULL);
+            }
     }
 }

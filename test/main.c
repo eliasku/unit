@@ -1,17 +1,17 @@
 #include <unit.h>
 
-describe(unit) {
-    debug("start");
+module(unit) {
+    comment("start");
 
-    it("main block contains test") {
-        debug("inside first main test");
+    it("contains test") {
+        comment("inside first main test");
     }
 
-    it("main block contains multiple tests") {
-        debug("inside second main test");
+    it("contains test") {
+        comment("inside second main test");
     }
 
-    subdesc(sub_description) {
+    describe(multiple tests) {
         it("block #1 in sub_description") {
 
         }
@@ -19,47 +19,96 @@ describe(unit) {
 
         }
     }
+
+    describe(linear execution) {
+        it("and could contains skip directive") {
+            require(!0, "done");
+            skip();
+            require(0 != 1, "todo");
+        }
+    }
+
+    describe(.allow_fail flag, .allow_fail=1) {
+        it("which pass the test in case of failure") {
+            require_eq(2, 2);
+            comment("Next require will fail");
+            require_eq(1, 0);
+            comment("Execution actually continues,");
+            comment("but another checks will be ignored after fail.");
+            require(0);
+            require(NULL);
+        }
+    }
+}
+
+module(asserts) {
+    it("evaluated only once!") {
+        int a = 5;
+        require_eq(++a, 6);
+        require(++a == 7);
+        check_eq(++a, 8);
+        check(++a == 9);
+        skip();
+        require_eq(++a, 10);
+        require(++a == 11);
+        check_eq(++a, 12);
+        check(++a == 13);
+
+        if(a != 9) exit(EXIT_FAILURE);
+    }
 }
 
 #include <stdio.h>
 
-describe(files) {
+module(files) {
     it("opens files") {
         FILE* f = fopen("/dev/zero", "r");
-        assertneq(f, NULL);
+        require_ne(f, NULL);
         fclose(f);
     }
 
     it("writes to files") {
         FILE* f = fopen("testfile", "w");
-        assertneq(f, NULL);
+        require_ne(f, NULL);
 
         char str[] = "hello there";
-        asserteq(fwrite(str, 1, sizeof(str), f), sizeof(str));
+        require_eq(fwrite(str, 1, sizeof(str), f), sizeof(str));
 
         fclose(f);
         remove("testfile");
     }
 
-    subdesc(fread) {
+    describe(fread) {
         it("reads 10 bytes") {
             FILE* f = fopen("/dev/zero", "r");
-            assertneq(f, NULL);
+            require_ne(f, NULL);
 
             char buf[10];
-            asserteq(fread(buf, 1, 10, f), 10);
+            require_eq(fread(buf, 1, 10, f), 10);
 
             fclose(f);
         }
 
         it("reads 20 bytes") {
             FILE* f = fopen("/dev/zero", "r");
-            assertneq(f, NULL);
+            require_ne(f, NULL);
 
             char buf[20];
-            asserteq(fread(buf, 1, 20, f), 20);
+            require_eq(fread(buf, 1, 20, f), 20);
 
             fclose(f);
         }
+
+        it("handle scope in for-loop") {
+            size_t executed_times = 0;
+            char buf[10];
+            for (FILE* f = fopen("/dev/zero", "r"); f; fclose(f), f = NULL) {
+                size_t bytes_read = fread(buf, 1, 10, f);
+                ++executed_times;
+                require_eq(bytes_read, 10);
+            }
+            require_eq(executed_times, 1);
+        }
     }
+
 }
