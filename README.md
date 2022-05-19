@@ -12,6 +12,5 @@
 --------
 
 <a href="https://github.com/eliasku/unit">
-<img width="480" src="images/unit-output.png" alt="unit-output">
+<img width="500" src="images/unit-output.png" alt="unit-output">
 </a>
-
