@@ -43,14 +43,15 @@ void* vector_get(vector* vec, size_t idx) {
 }
 
 #define UNIT_IMPL
-
 #include <unit.h>
 
 suite(vector, .allow_fail = true) {
     vector vec;
 
     it("breaks the rules of math (to demonstrate failed tests)") {
-        require(1 == 2, Oh, noes!);
+        check(1 == 2, unary op check);
+        require_eq(1, 2, binary op fail);
+        echo("Oh, noes!");
         // these checks will be skipped after previous fail
         require_eq(vector_get(&vec, 101), NULL);
         require_eq(vec.elem_size, 53);

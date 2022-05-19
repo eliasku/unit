@@ -3,6 +3,9 @@
 #include <stdio.h>
 
 suite(files) {
+
+    echo("hello io");
+
     it("opens files") {
         FILE* f = fopen("/dev/zero", "r");
         require_ne(f, NULL);

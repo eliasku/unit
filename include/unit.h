@@ -22,49 +22,10 @@
 extern "C" {
 #endif
 
-/** Цвета, текстовые сообщения и логи **/
-
-#ifndef UNIT_NO_COLORS
-#define UNIT_COLOR_RESET "\033[0m"
-#define UNIT_COLOR_BOLD "\033[1m"
-#define UNIT_COLOR_WHITE "\033[97m"
-#define UNIT_COLOR_MAYBE "\033[35m"
-#define UNIT_COLOR_COMMENT "\033[36m"
-#define UNIT_COLOR_SUCCESS "\033[92m"
-#define UNIT_COLOR_FAIL "\033[91m"
-#define UNIT_COLOR_DESC "\033[33m"
-#else
-#define UNIT_COLOR_RESET
-#define UNIT_COLOR_BOLD
-#define UNIT_COLOR_WHITE
-#define UNIT_COLOR_MAYBE
-#define UNIT_COLOR_COMMENT
-#define UNIT_COLOR_SUCCESS
-#define UNIT_COLOR_FAIL
-#define UNIT_COLOR_DESC
-#endif
-
-// $prefix 0 Status: $message
-#define UNIT_MSG_TESTING "\n%s" "◆ " UNIT_COLOR_BOLD UNIT_COLOR_WHITE "Testing %s" UNIT_COLOR_RESET ":\n"
-#define UNIT_MSG_RUN "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s" UNIT_COLOR_RESET "\n"
-#define UNIT_MSG_SUCCESS "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Success: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "Ⅱ " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_FAILED "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-
-#define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
-
-//#define UNIT_MSG_ECHO "%s💬 %s\n"
-#define UNIT_MSG_ECHO "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
-//#define UNIT_MSG_ECHO "%s# %s\n"
+extern const char* unit__msg_echo;
 
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
-#define UNIT_ECHO(msg) UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg)
-
-enum {
-    UNIT_STATUS_SUCCESS = 0,
-    UNIT_STATUS_SKIPPED = 1,
-    UNIT_STATUS_FAILED = 2
-};
+#define UNIT_ECHO(msg) UNIT_PRINTF(unit__msg_echo, unit__spaces(0), msg)
 
 enum {
     UNIT__OP_TRUE = 0,
@@ -77,7 +38,7 @@ enum {
     UNIT__OP_GE = 7,
 
     // не помечает тест неудачным, просто предупреждает
-    UNIT__LEVEL_WARNING = 0,
+    UNIT__LEVEL_WARN = 0,
     // проваливает тест, но продолжает выполнять другие проверки
     UNIT__LEVEL_CHECK = 1,
     // проваливает тест и пропускает следующие проверки в текущем тесте
@@ -127,9 +88,13 @@ extern struct unit_test* unit_cur;
 extern struct unit_test_state unit_test_cur;
 
 int unit_it_begin(const char* desc, struct unit__it_flags flags);
+
 void unit_it_end(void);
+
 int unit_begin(struct unit_test* unit);
+
 void unit_end(struct unit_test* unit);
+
 int unit_main(int argc, char** argv);
 
 // https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
@@ -144,8 +109,8 @@ int unit_main(int argc, char** argv);
 #define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
 #define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
-#define UNIT__CONDITIONAL_SCOPE_BODY(begin, end, Var) for (int Var = !(begin) ? 0 : 1; !Var; ++Var, end)
-#define UNIT_CONDITIONAL_SCOPE(begin, end) UNIT__CONDITIONAL_SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
+#define UNIT__TRY_BODY(begin, end, Var) for (int Var = (begin) ? 0 : (end, 1); !Var; ++Var, end)
+#define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
 #define UNIT__SUITE(Var, Name, ...) \
     void UNIT__CONCAT(Var, _main) (void); \
@@ -161,11 +126,11 @@ int unit_main(int argc, char** argv);
 
 #define UNIT__DESCRIBE(Var, Name, ...) \
     static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-    UNIT_CONDITIONAL_SCOPE(unit_begin(&Var), unit_end(&Var))
+    UNIT_TRY_SCOPE(unit_begin(&Var), unit_end(&Var))
 
 #define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT_IT(Description, ...) UNIT_CONDITIONAL_SCOPE(unit_it_begin(Description, (struct unit__it_flags){__VA_ARGS__}), unit_it_end())
+#define UNIT_IT(Description, ...) UNIT_TRY_SCOPE(unit_it_begin(Description, (struct unit__it_flags){__VA_ARGS__}), unit_it_end())
 
 /** Assert functions **/
 
@@ -180,105 +145,55 @@ bool unit__prepare_assert(int level, const char* loc, const char* comment, const
 #define UNIT__ASSERT_LAZY(Assertion, Level, Comment, Description) \
 if(unit__prepare_assert(Level, UNIT__FILEPOS, Comment, Description)) Assertion
 
-#define UNIT__IS_TRUE(a, ...) (!!(a))
-#define UNIT__IS_NOT_EMPTY_STR(a, ...) ((a) && *(a) != '\0')
+#define UNIT__IS_TRUE(_, x) (!!(x))
+#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && *(x) != '\0')
 #define UNIT__COMPARE_PRIMITIVE(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
 
-#define UNIT__DECLARE_ASSERT(Tag, Type, FormatType, Cmp) \
-static void unit__assert_ ## Tag(Type a, Type b, int op) { \
-    bool pass = false; \
-    const char* op_str = ""; \
-    int res = Cmp(a, b); \
-    switch(op) { \
-        case UNIT__OP_TRUE: pass = res != 0; op_str = "is false"; break; \
-        case UNIT__OP_FALSE: pass = res == 0; op_str = "is true"; break; \
-        case UNIT__OP_EQ: pass = res == 0; op_str = "!="; break; \
-        case UNIT__OP_NE: pass = res != 0; op_str = "=="; break; \
-        case UNIT__OP_LT: pass = res < 0; op_str = ">="; break; \
-        case UNIT__OP_LE: pass = res <= 0; op_str = ">"; break; \
-        case UNIT__OP_GT: pass = res > 0; op_str = "<="; break; \
-        case UNIT__OP_GE: pass = res >= 0; op_str = "<"; break; \
-        default: break; \
-    } \
-    if(pass) unit__print_assert(UNIT_STATUS_SUCCESS); \
-    else { \
-        unit__print_assert(UNIT_STATUS_FAILED);                 \
-        if(op < UNIT__OP_EQ)                                    \
-            unit__fail_impl("Assertion failed: " #FormatType " %s", a, op_str); \
-        else                                                    \
-            unit__fail_impl("Assertion failed: " #FormatType " %s " #FormatType, a, op_str, b); \
-    } \
-}
+#define UNIT__FOR_ASSERTS(macro) \
+macro(int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
+macro(uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
+macro(dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
+macro(ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
+macro(str, const char*, %s, strcmp, UNIT__IS_NOT_EMPTY_STR)
 
-UNIT__DECLARE_ASSERT(unary_int, intmax_t, %jd, UNIT__IS_TRUE)
+#define UNIT__DEFINE_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
+void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb);
 
-UNIT__DECLARE_ASSERT(unary_uint, uintmax_t, %ju, UNIT__IS_TRUE)
+UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
-UNIT__DECLARE_ASSERT(unary_dbl, long double, %Lg, UNIT__IS_TRUE)
-
-UNIT__DECLARE_ASSERT(unary_ptr, const void*, %p, UNIT__IS_TRUE)
-
-UNIT__DECLARE_ASSERT(unary_str, const char*, %s, UNIT__IS_NOT_EMPTY_STR)
-
-UNIT__DECLARE_ASSERT(binary_int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_ASSERT(binary_uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_ASSERT(binary_dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_ASSERT(binary_ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE)
-
-UNIT__DECLARE_ASSERT(binary_str, const char*, %s, strcmp)
-
-#define UNIT__SELECT_ASSERT_UNARY(x) \
+#define UNIT__SELECT_ASSERT(x) \
     _Generic((x), \
-        void*: unit__assert_unary_ptr, \
-        char*: unit__assert_unary_str, \
-        bool: unit__assert_unary_int, \
-        int: unit__assert_unary_int, \
-        long long: unit__assert_unary_int, \
-        unsigned int: unit__assert_unary_uint, \
-        unsigned long: unit__assert_unary_uint, \
-        unsigned long long: unit__assert_unary_uint, \
-        float: unit__assert_unary_dbl, \
-        double: unit__assert_unary_dbl, \
-        long double: unit__assert_unary_dbl \
-        )
+        void*: unit__assert_ptr, \
+        char*: unit__assert_str, \
+        bool: unit__assert_int, \
+        int: unit__assert_int, \
+        long long: unit__assert_int, \
+        unsigned int: unit__assert_uint, \
+        unsigned long: unit__assert_uint, \
+        unsigned long long: unit__assert_uint, \
+        float: unit__assert_dbl, \
+        double: unit__assert_dbl, \
+        long double: unit__assert_dbl)
 
-#define UNIT__SELECT_ASSERT_BINARY(x) \
-    _Generic((x), \
-        void*: unit__assert_binary_ptr, \
-        char*: unit__assert_binary_str, \
-        int: unit__assert_binary_int, \
-        long long: unit__assert_binary_int, \
-        unsigned int: unit__assert_binary_uint, \
-        unsigned long: unit__assert_binary_uint, \
-        unsigned long long: unit__assert_binary_uint, \
-        float: unit__assert_binary_dbl, \
-        double: unit__assert_binary_dbl, \
-        long double: unit__assert_binary_dbl \
-        )
+#define UNIT__ASSERT(Level, Op, a, b, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT(b)(a, b, Op, Desc, #a, #b), Level, "" #comments, Desc)
 
-#define UNIT__UNARY_ASSERT(Level, Op, x, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT_UNARY(x)(x, 0, Op), Level, "" #comments, Desc)
-#define UNIT__BINARY_ASSERT(Level, Op, a, b, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT_BINARY(b)(a, b, Op), Level, "" #comments, Desc)
+#define UNIT_CHECK(x, ...)       UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_TRUE,  0, x, "check " #x, __VA_ARGS__)
+#define UNIT_CHECK_FALSE(x, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_FALSE, 0, x, "check " #x " is not true", __VA_ARGS__)
+#define UNIT_CHECK_EQ(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_EQ, a, b, "check " #a " == " #b, __VA_ARGS__)
+#define UNIT_CHECK_NE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_NE, a, b, "check " #a " != " #b, __VA_ARGS__)
+#define UNIT_CHECK_GT(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_GT, a, b, "check " #a " > " #b, __VA_ARGS__)
+#define UNIT_CHECK_GE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_GE, a, b, "check " #a " >= " #b, __VA_ARGS__)
+#define UNIT_CHECK_LT(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_LT, a, b, "check " #a " < " #b, __VA_ARGS__)
+#define UNIT_CHECK_LE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_LE, a, b, "check " #a " <= " #b, __VA_ARGS__)
 
-#define UNIT_CHECK(x, ...)       UNIT__UNARY_ASSERT(UNIT__LEVEL_CHECK,  UNIT__OP_TRUE,  x, "check " #x, __VA_ARGS__)
-#define UNIT_CHECK_FALSE(x, ...) UNIT__UNARY_ASSERT(UNIT__LEVEL_CHECK,  UNIT__OP_FALSE, x, "check " #x " is not true", __VA_ARGS__)
-#define UNIT_CHECK_EQ(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_EQ, a, b, "check " #a " == " #b, __VA_ARGS__)
-#define UNIT_CHECK_NE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_NE, a, b, "check " #a " != " #b, __VA_ARGS__)
-#define UNIT_CHECK_GT(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_GT, a, b, "check " #a " > " #b, __VA_ARGS__)
-#define UNIT_CHECK_GE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_GE, a, b, "check " #a " >= " #b, __VA_ARGS__)
-#define UNIT_CHECK_LT(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_LT, a, b, "check " #a " < " #b, __VA_ARGS__)
-#define UNIT_CHECK_LE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_CHECK, UNIT__OP_LE, a, b, "check " #a " <= " #b, __VA_ARGS__)
-
-#define UNIT_REQUIRE(x, ...)       UNIT__UNARY_ASSERT(UNIT__LEVEL_REQUIRE,  UNIT__OP_TRUE,  x, "require " #x, __VA_ARGS__)
-#define UNIT_REQUIRE_FALSE(x, ...) UNIT__UNARY_ASSERT(UNIT__LEVEL_REQUIRE,  UNIT__OP_FALSE, x, "require " #x " is not true", __VA_ARGS__)
-#define UNIT_REQUIRE_EQ(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_EQ, a, b, "require " #a " == " #b, __VA_ARGS__)
-#define UNIT_REQUIRE_NE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_NE, a, b, "require " #a " != " #b, __VA_ARGS__)
-#define UNIT_REQUIRE_GT(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_GT, a, b, "require " #a " > " #b, __VA_ARGS__)
-#define UNIT_REQUIRE_GE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_GE, a, b, "require " #a " >= " #b, __VA_ARGS__)
-#define UNIT_REQUIRE_LT(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LT, a, b, "require " #a " < " #b, __VA_ARGS__)
-#define UNIT_REQUIRE_LE(a, b, ...) UNIT__BINARY_ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
+#define UNIT_REQUIRE(x, ...)       UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_TRUE,  0, x, "require " #x, __VA_ARGS__)
+#define UNIT_REQUIRE_FALSE(x, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_FALSE, 0, x, "require " #x " is not true", __VA_ARGS__)
+#define UNIT_REQUIRE_EQ(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_EQ, a, b, "require " #a " == " #b, __VA_ARGS__)
+#define UNIT_REQUIRE_NE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_NE, a, b, "require " #a " != " #b, __VA_ARGS__)
+#define UNIT_REQUIRE_GT(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_GT, a, b, "require " #a " > " #b, __VA_ARGS__)
+#define UNIT_REQUIRE_GE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_GE, a, b, "require " #a " >= " #b, __VA_ARGS__)
+#define UNIT_REQUIRE_LT(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LT, a, b, "require " #a " < " #b, __VA_ARGS__)
+#define UNIT_REQUIRE_LE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
 
 #define UNIT_SKIP() unit_test_cur.state |= UNIT__LEVEL_REQUIRE
 
@@ -319,6 +234,49 @@ UNIT__DECLARE_ASSERT(binary_str, const char*, %s, strcmp)
 #endif // UNIT_H
 
 #ifdef UNIT_IMPL
+
+// region Цвета, текстовые сообщения и логи
+
+#ifndef UNIT_NO_COLORS
+#define UNIT_COLOR_RESET "\033[0m"
+#define UNIT_COLOR_BOLD "\033[1m"
+#define UNIT_COLOR_WHITE "\033[97m"
+#define UNIT_COLOR_MAYBE "\033[35m"
+#define UNIT_COLOR_COMMENT "\033[36m"
+#define UNIT_COLOR_SUCCESS "\033[92m"
+#define UNIT_COLOR_FAIL "\033[91m"
+#define UNIT_COLOR_DESC "\033[33m"
+#else
+#define UNIT_COLOR_RESET
+#define UNIT_COLOR_BOLD
+#define UNIT_COLOR_WHITE
+#define UNIT_COLOR_MAYBE
+#define UNIT_COLOR_COMMENT
+#define UNIT_COLOR_SUCCESS
+#define UNIT_COLOR_FAIL
+#define UNIT_COLOR_DESC
+#endif
+
+// $prefix 0 Status: $message
+#define UNIT_MSG_TESTING "\n%s" "◆ " UNIT_COLOR_BOLD UNIT_COLOR_WHITE "Testing %s" UNIT_COLOR_RESET ":\n"
+#define UNIT_MSG_RUN "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_SUCCESS "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Success: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "Ⅱ " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+#define UNIT_MSG_FAILED "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+
+#define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
+
+//#define UNIT_MSG_ECHO "💬"
+//#define UNIT_MSG_ECHO "#"
+const char* unit__msg_echo = "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n";
+
+enum {
+    UNIT_STATUS_SUCCESS = 0,
+    UNIT_STATUS_SKIPPED = 1,
+    UNIT_STATUS_FAILED = 2
+};
+
+// endregion
 
 #ifdef __cplusplus
 extern "C" {
@@ -365,13 +323,60 @@ const char* unit__spaces(int delta) {
 
 // endregion
 
+const char* unit__op_expl[] = {
+        " is true",
+        " is false",
+        " == ",
+        " != ",
+        " >= ",
+        " > ",
+        " <= ",
+        " < ",
+};
+
+const char* unit__op_nexpl[] = {
+        " is not true",
+        " is not false",
+        " != ",
+        " == ",
+        " < ",
+        " <= ",
+        " > ",
+        " >= ",
+};
+
+#define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
+void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb) { \
+    bool pass = false; \
+    switch(op) {                                                       \
+        case UNIT__OP_TRUE: pass = (UnaryOp(a, b)); break; \
+        case UNIT__OP_FALSE: pass = !(UnaryOp(a, b)); break; \
+        case UNIT__OP_EQ: pass = (BinaryOp(a, b)) == 0; break; \
+        case UNIT__OP_NE: pass = (BinaryOp(a, b)) != 0; break; \
+        case UNIT__OP_LT: pass = (BinaryOp(a, b)) < 0; break; \
+        case UNIT__OP_LE: pass = (BinaryOp(a, b)) <= 0; break; \
+        case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
+        case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
+        default: return; \
+    }                                                                  \
+    unit__print_assert(pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    if (!pass) { \
+        const char* expl = unit__op_expl[op];                 \
+        const char* nexpl = unit__op_nexpl[op];                 \
+        if (op < UNIT__OP_EQ) unit__fail_impl("Expected `%s`%s, but got `" #FormatType "%s`", sb, expl, b, nexpl); \
+        else unit__fail_impl("Expected `%s`%s`%s`, but got `" #FormatType "%s" #FormatType "`", sa, expl, sb, a, nexpl, b); \
+    } \
+}
+
+UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
+
 void unit__fail_impl(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     const char* msg = unit__vbprintf(fmt, args);
     va_end(args);
 
-    if (unit_test_cur.assert_level > UNIT__LEVEL_WARNING) {
+    if (unit_test_cur.assert_level > UNIT__LEVEL_WARN) {
         unit_test_cur.status = UNIT_STATUS_FAILED;
         unit_test_cur.state |= unit_test_cur.assert_level;
     }
@@ -447,26 +452,20 @@ int unit_it_begin(const char* desc, struct unit__it_flags flags) {
         u->total++;
     }
 
-    if(flags.skip) {
+    if (flags.skip) {
         unit_test_cur.status = UNIT_STATUS_SKIPPED;
-        unit_it_end();
-        return 1;
     }
 
-    return 0;
+    return !flags.skip;
 }
 
 const char* unit__status_msg(int status) {
-    switch (status) {
-        case UNIT_STATUS_SUCCESS:
-            return UNIT_MSG_SUCCESS;
-        case UNIT_STATUS_SKIPPED:
-            return UNIT_MSG_SKIPPED;
-        case UNIT_STATUS_FAILED:
-            return UNIT_MSG_FAILED;
-        default:
-            __builtin_unreachable();
-    }
+    const char* dict[] = (const char* [3]) {
+            [UNIT_STATUS_SUCCESS] = UNIT_MSG_SUCCESS,
+            [UNIT_STATUS_SKIPPED] = UNIT_MSG_SKIPPED,
+            [UNIT_STATUS_FAILED] = UNIT_MSG_FAILED,
+    };
+    return dict[status];
 }
 
 void unit_it_end(void) {
@@ -496,12 +495,7 @@ int unit_begin(struct unit_test* unit) {
     unit_prev_print_results = false;
     ++unit_depth;
 
-    if(unit->skip) {
-        unit_end(unit);
-        return 1;
-    }
-
-    return 0;
+    return !unit->skip;
 }
 
 void unit_end(struct unit_test* unit) {
@@ -513,8 +507,7 @@ void unit_end(struct unit_test* unit) {
     --unit_depth;
     if (unit->skip) {
         UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, elapsed_time);
-    }
-    else {
+    } else {
         UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, elapsed_time);
     }
     unit_prev_print_results = true;
@@ -528,13 +521,8 @@ int unit_main(int argc, char** argv) {
 
     int failed = 0;
     for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
-        if(unit_begin(unit) == 0) {
-            unit->fn();
-            unit_end(unit);
-            if (unit->passed < unit->total) {
-                ++failed;
-            }
-        }
+        UNIT_TRY_SCOPE(unit_begin(unit), unit_end(unit)) unit->fn();
+        failed += (unit->passed < unit->total) ? 1 : 0;
     }
 
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;
