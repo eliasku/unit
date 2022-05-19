@@ -42,6 +42,8 @@ void* vector_get(vector* vec, size_t idx) {
     return ptr;
 }
 
+#define UNIT_IMPL
+
 #include <unit.h>
 
 suite(vector, .allow_fail = true) {

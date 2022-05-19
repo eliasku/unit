@@ -14,7 +14,11 @@ if (UNIT_TESTING)
     enable_testing()
 
     project(unit-test C)
-    add_executable(${PROJECT_NAME} test/main.c)
+    add_executable(${PROJECT_NAME}
+            test/main.c
+            test/test_files.c
+            test/test_asserts.c
+            )
     target_link_libraries(${PROJECT_NAME} PUBLIC unit)
     add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
     test_code_coverage(${PROJECT_NAME})

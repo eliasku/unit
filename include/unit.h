@@ -22,26 +22,6 @@
 extern "C" {
 #endif
 
-/** Время **/
-
-double unit__time(double prev) {
-#ifndef UNIT_NO_TIME
-    struct timespec ts = {0};
-#ifdef _WIN32
-    if (timespec_get(&ts, TIME_UTC) != TIME_UTC) {
-        return 0.0;
-    }
-#else
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
-        return 0.0;
-    }
-#endif
-    return (double) ts.tv_sec * 1000.0 + (double) ts.tv_nsec / 1000000.0 - prev;
-#else // UNIT_NO_TIME
-    return 0.0;
-#endif // UNIT_NO_TIME
-}
-
 /** Цвета, текстовые сообщения и логи **/
 
 #ifndef UNIT_NO_COLORS
@@ -80,13 +60,6 @@ double unit__time(double prev) {
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
 #define UNIT_ECHO(msg) UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg)
 
-static char unit__tmp_buffer[1024];
-
-const char* unit__vbprintf(const char* fmt, va_list args) {
-    vsnprintf(unit__tmp_buffer, sizeof unit__tmp_buffer, fmt, args);
-    return unit__tmp_buffer;
-}
-
 enum {
     UNIT_STATUS_SUCCESS = 0,
     UNIT_STATUS_SKIPPED = 1,
@@ -124,30 +97,14 @@ struct unit_test {
     int total;
     int passed;
     bool allow_fail;
+    bool skip;
 };
 
-static const char* unit_spaces[8] = {
-        "",
-        "  ",
-        "    ",
-        "      ",
-        "        ",
-        "          ",
-        "            ",
-        "              "
-};
-static int unit_depth = 0;
+extern int unit_depth;
 
-static const char* unit__spaces(int delta) {
-    int i = unit_depth + delta;
-    if (i < 0) i = 0;
-    if (i > 7) i = 7;
-    return unit_spaces[i];
-}
+const char* unit__spaces(int delta);
 
-static struct unit_test* unit_tests = NULL;
-static struct unit_test* unit_cur = NULL;
-static struct {
+struct unit_test_state {
     // status of current assertion
     int status;
     // state for this test scope
@@ -159,49 +116,21 @@ static struct {
     const char* assert_desc;
     const char* assert_loc;
     int assert_level;
-} unit_test_cur = {0};
+};
 
-static void unit_it_begin(const char* desc) {
-    UNIT_PRINTF(UNIT_MSG_RUN, unit__spaces(0), desc);
-    unit_test_cur.state = 0;
-    unit_test_cur.status = UNIT_STATUS_SUCCESS;
-    unit_test_cur.t0 = unit__time(0.0);
-    unit_test_cur.desc = desc;
-    unit_test_cur.assert_desc = NULL;
-    for (struct unit_test* u = unit_cur; u; u = u->parent) {
-        u->total++;
-    }
-    ++unit_depth;
-}
+struct unit__it_flags {
+    bool skip;
+};
 
-static const char* unit_get_status_msg(int status) {
-    switch (status) {
-        case UNIT_STATUS_SUCCESS:
-            return UNIT_MSG_SUCCESS;
-        case UNIT_STATUS_SKIPPED:
-            return UNIT_MSG_SKIPPED;
-        case UNIT_STATUS_FAILED:
-            return UNIT_MSG_FAILED;
-        default:
-            return "";
-    }
-}
+extern struct unit_test* unit_tests;
+extern struct unit_test* unit_cur;
+extern struct unit_test_state unit_test_cur;
 
-static void unit_it_end(void) {
-    const bool success = unit_test_cur.status == UNIT_STATUS_SUCCESS;
-    bool allow_fail = false;
-    for (struct unit_test* u = unit_cur; u; u = u->parent) {
-        allow_fail = allow_fail || u->allow_fail;
-        if (success || allow_fail) {
-            u->passed++;
-        }
-    }
-    double elapsed_time = unit__time(unit_test_cur.t0);
-    UNIT_PRINTF(unit_get_status_msg(unit_test_cur.status), unit__spaces(0), unit_test_cur.desc,
-                elapsed_time);
-
-    --unit_depth;
-}
+int unit_it_begin(const char* desc, struct unit__it_flags flags);
+void unit_it_end(void);
+int unit_begin(struct unit_test* unit);
+void unit_end(struct unit_test* unit);
+int unit_main(int argc, char** argv);
 
 // https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
 #define UNIT__STR(x) #x
@@ -214,6 +143,9 @@ static void unit_it_end(void) {
 
 #define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
 #define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
+
+#define UNIT__CONDITIONAL_SCOPE_BODY(begin, end, Var) for (int Var = !(begin) ? 0 : 1; !Var; ++Var, end)
+#define UNIT_CONDITIONAL_SCOPE(begin, end) UNIT__CONDITIONAL_SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
 #define UNIT__SUITE(Var, Name, ...) \
     void UNIT__CONCAT(Var, _main) (void); \
@@ -229,103 +161,19 @@ static void unit_it_end(void) {
 
 #define UNIT__DESCRIBE(Var, Name, ...) \
     static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-    UNIT_SCOPE(unit_begin(&Var), unit_end(&Var))
+    UNIT_CONDITIONAL_SCOPE(unit_begin(&Var), unit_end(&Var))
 
 #define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT_IT(Description) UNIT_SCOPE(unit_it_begin(Description), unit_it_end())
-
-static bool unit_prev_print_results = false;
-
-static void unit_begin(struct unit_test* unit) {
-    unit->parent = unit_cur;
-    unit_cur = unit;
-    unit->t0 = unit__time(0.0);
-
-    UNIT_PRINTF(UNIT_MSG_TESTING, unit__spaces(0), unit->name);
-    unit_prev_print_results = false;
-    ++unit_depth;
-}
-
-static void unit_end(struct unit_test* unit) {
-    const double elapsed_time = unit__time(unit->t0);
-    // добавляем дополнительный отступ между блоками
-    if (unit_prev_print_results) {
-        putchar('\n');
-    }
-    --unit_depth;
-    UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, elapsed_time);
-    unit_prev_print_results = true;
-
-    unit_cur = unit->parent;
-}
-
-static int unit_main(int argc, char** argv) {
-    (void) (argc);
-    (void) (argv);
-
-    int failed = 0;
-    for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
-        unit_begin(unit);
-        unit->fn();
-        unit_end(unit);
-        if (unit->passed < unit->total) {
-            ++failed;
-        }
-    }
-
-    return failed ? EXIT_FAILURE : EXIT_SUCCESS;
-}
-
+#define UNIT_IT(Description, ...) UNIT_CONDITIONAL_SCOPE(unit_it_begin(Description, (struct unit__it_flags){__VA_ARGS__}), unit_it_end())
 
 /** Assert functions **/
 
-void unit__fail_impl(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    const char* msg = unit__vbprintf(fmt, args);
-    va_end(args);
+void unit__fail_impl(const char* fmt, ...);
 
-    if (unit_test_cur.assert_level > UNIT__LEVEL_WARNING) {
-        unit_test_cur.status = UNIT_STATUS_FAILED;
-        unit_test_cur.state |= unit_test_cur.assert_level;
-    }
-    UNIT_PRINTF("%s%s\n"
-                "%sin %s (%s : %s)\n",
-                unit__spaces(1), msg,
-                unit__spaces(1), unit_test_cur.assert_loc, unit_cur->name, unit_test_cur.desc
-    );
-}
+void unit__print_assert(int status);
 
-void unit__print_assert(int status) {
-    const char* fmt = NULL;
-    if (status == UNIT_STATUS_SKIPPED) {
-        fmt = "%sⅡ Skip: %s\n";
-    } else if (status == UNIT_STATUS_SUCCESS) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
-    } else if (status == UNIT_STATUS_FAILED) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
-    }
-    if (fmt) {
-        const char* desc = unit_test_cur.assert_comment[0] != '\0' ?
-                           unit_test_cur.assert_comment :
-                           unit_test_cur.assert_desc;
-        UNIT_PRINTF(fmt, unit__spaces(0), desc);
-    }
-}
-
-static bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
-    unit_test_cur.assert_comment = comment;
-    unit_test_cur.assert_desc = desc;
-    unit_test_cur.assert_level = level;
-    unit_test_cur.assert_loc = loc;
-    if ((unit_test_cur.state & 2) != 2) {
-        // выполнить проверку
-        return true;
-    }
-    unit__print_assert(UNIT_STATUS_SKIPPED);
-    return false;
-}
+bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
 // устанавливает читаемое описание проверки, в случае нормального состояния выполняет проверку,
 // если установлено состояние пропускать тесты - НЕ ВЫЧИСЛЯЕТ аргументы для проверки
@@ -363,14 +211,23 @@ static void unit__assert_ ## Tag(Type a, Type b, int op) { \
 }
 
 UNIT__DECLARE_ASSERT(unary_int, intmax_t, %jd, UNIT__IS_TRUE)
+
 UNIT__DECLARE_ASSERT(unary_uint, uintmax_t, %ju, UNIT__IS_TRUE)
+
 UNIT__DECLARE_ASSERT(unary_dbl, long double, %Lg, UNIT__IS_TRUE)
+
 UNIT__DECLARE_ASSERT(unary_ptr, const void*, %p, UNIT__IS_TRUE)
+
 UNIT__DECLARE_ASSERT(unary_str, const char*, %s, UNIT__IS_NOT_EMPTY_STR)
+
 UNIT__DECLARE_ASSERT(binary_int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE)
+
 UNIT__DECLARE_ASSERT(binary_uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE)
+
 UNIT__DECLARE_ASSERT(binary_dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE)
+
 UNIT__DECLARE_ASSERT(binary_ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE)
+
 UNIT__DECLARE_ASSERT(binary_str, const char*, %s, strcmp)
 
 #define UNIT__SELECT_ASSERT_UNARY(x) \
@@ -425,17 +282,6 @@ UNIT__DECLARE_ASSERT(binary_str, const char*, %s, strcmp)
 
 #define UNIT_SKIP() unit_test_cur.state |= UNIT__LEVEL_REQUIRE
 
-/** Main **/
-
-#ifndef UNIT_NO_MAIN
-
-int main(int argc, char** argv) {
-    srand(time(NULL));
-    return unit_main(argc, argv);
-}
-
-#endif // UNIT_NO_MAIN
-
 #ifdef __cplusplus
 }
 #endif
@@ -471,3 +317,233 @@ int main(int argc, char** argv) {
 // endregion
 
 #endif // UNIT_H
+
+#ifdef UNIT_IMPL
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef UNIT_NO_MAIN
+
+int main(int argc, char** argv) {
+    srand(time(NULL));
+    return unit_main(argc, argv);
+}
+
+#endif // UNIT_NO_MAIN
+
+struct unit_test* unit_tests = NULL;
+struct unit_test* unit_cur = NULL;
+struct unit_test_state unit_test_cur = {0};
+
+// region утилиты для вывода
+const char* unit__vbprintf(const char* fmt, va_list args) {
+    static char s_buffer[1024];
+    vsnprintf(s_buffer, sizeof s_buffer, fmt, args);
+    return s_buffer;
+}
+
+const char* unit_spaces[8] = {
+        "",
+        "  ",
+        "    ",
+        "      ",
+        "        ",
+        "          ",
+        "            ",
+        "              "
+};
+int unit_depth = 0;
+
+const char* unit__spaces(int delta) {
+    int i = unit_depth + delta;
+    if (i < 0) i = 0;
+    if (i > 7) i = 7;
+    return unit_spaces[i];
+}
+
+// endregion
+
+void unit__fail_impl(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const char* msg = unit__vbprintf(fmt, args);
+    va_end(args);
+
+    if (unit_test_cur.assert_level > UNIT__LEVEL_WARNING) {
+        unit_test_cur.status = UNIT_STATUS_FAILED;
+        unit_test_cur.state |= unit_test_cur.assert_level;
+    }
+    UNIT_PRINTF("%s%s\n"
+                "%sin %s (%s : %s)\n",
+                unit__spaces(1), msg,
+                unit__spaces(1), unit_test_cur.assert_loc, unit_cur->name, unit_test_cur.desc
+    );
+}
+
+void unit__print_assert(int status) {
+    const char* fmt = NULL;
+    if (status == UNIT_STATUS_SKIPPED) {
+        fmt = "%sⅡ Skip: %s\n";
+    } else if (status == UNIT_STATUS_SUCCESS) {
+        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
+    } else if (status == UNIT_STATUS_FAILED) {
+        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
+    }
+    if (fmt) {
+        const char* desc = unit_test_cur.assert_comment[0] != '\0' ?
+                           unit_test_cur.assert_comment :
+                           unit_test_cur.assert_desc;
+        UNIT_PRINTF(fmt, unit__spaces(0), desc);
+    }
+}
+
+bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
+    unit_test_cur.assert_comment = comment;
+    unit_test_cur.assert_desc = desc;
+    unit_test_cur.assert_level = level;
+    unit_test_cur.assert_loc = loc;
+    if (unit_test_cur.state & UNIT__LEVEL_REQUIRE) {
+        // пропустить проверку
+        unit__print_assert(UNIT_STATUS_SKIPPED);
+        return false;
+    }
+    return true;
+}
+
+
+/** Время **/
+
+double unit__time(double prev) {
+#ifndef UNIT_NO_TIME
+    struct timespec ts = {0};
+    bool success;
+#ifdef _WIN32
+    success = timespec_get(&ts, TIME_UTC) == TIME_UTC;
+#else
+    success = clock_gettime(CLOCK_REALTIME, &ts) == 0;
+#endif
+    if (!success) return 0.0;
+    return (double) ts.tv_sec * 1000.0 + (double) ts.tv_nsec / 1000000.0 - prev;
+#else // UNIT_NO_TIME
+    return 0.0;
+#endif // UNIT_NO_TIME
+}
+
+// region начало конец запуска каждого теста
+
+int unit_it_begin(const char* desc, struct unit__it_flags flags) {
+    UNIT_PRINTF(UNIT_MSG_RUN, unit__spaces(0), desc);
+    unit_test_cur.state = 0;
+    unit_test_cur.status = UNIT_STATUS_SUCCESS;
+    unit_test_cur.t0 = unit__time(0.0);
+    unit_test_cur.desc = desc;
+    unit_test_cur.assert_desc = NULL;
+
+    ++unit_depth;
+
+    for (struct unit_test* u = unit_cur; u; u = u->parent) {
+        u->total++;
+    }
+
+    if(flags.skip) {
+        unit_test_cur.status = UNIT_STATUS_SKIPPED;
+        unit_it_end();
+        return 1;
+    }
+
+    return 0;
+}
+
+const char* unit__status_msg(int status) {
+    switch (status) {
+        case UNIT_STATUS_SUCCESS:
+            return UNIT_MSG_SUCCESS;
+        case UNIT_STATUS_SKIPPED:
+            return UNIT_MSG_SKIPPED;
+        case UNIT_STATUS_FAILED:
+            return UNIT_MSG_FAILED;
+        default:
+            __builtin_unreachable();
+    }
+}
+
+void unit_it_end(void) {
+    const bool success = unit_test_cur.status != UNIT_STATUS_FAILED;
+    bool allow_fail = false;
+    for (struct unit_test* u = unit_cur; u; u = u->parent) {
+        allow_fail = allow_fail || u->allow_fail;
+        if (success || allow_fail) {
+            u->passed++;
+        }
+    }
+    double elapsed_time = unit__time(unit_test_cur.t0);
+    UNIT_PRINTF(unit__status_msg(unit_test_cur.status), unit__spaces(0), unit_test_cur.desc,
+                elapsed_time);
+
+    --unit_depth;
+}
+
+static bool unit_prev_print_results = false;
+
+int unit_begin(struct unit_test* unit) {
+    unit->parent = unit_cur;
+    unit_cur = unit;
+    unit->t0 = unit__time(0.0);
+
+    UNIT_PRINTF(UNIT_MSG_TESTING, unit__spaces(0), unit->name);
+    unit_prev_print_results = false;
+    ++unit_depth;
+
+    if(unit->skip) {
+        unit_end(unit);
+        return 1;
+    }
+
+    return 0;
+}
+
+void unit_end(struct unit_test* unit) {
+    const double elapsed_time = unit__time(unit->t0);
+    // добавляем дополнительный отступ между блоками
+    if (unit_prev_print_results) {
+        putchar('\n');
+    }
+    --unit_depth;
+    if (unit->skip) {
+        UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, elapsed_time);
+    }
+    else {
+        UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, elapsed_time);
+    }
+    unit_prev_print_results = true;
+
+    unit_cur = unit->parent;
+}
+
+int unit_main(int argc, char** argv) {
+    (void) (argc);
+    (void) (argv);
+
+    int failed = 0;
+    for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
+        if(unit_begin(unit) == 0) {
+            unit->fn();
+            unit_end(unit);
+            if (unit->passed < unit->total) {
+                ++failed;
+            }
+        }
+    }
+
+    return failed ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+// endregion
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // UNIT_IMPL
