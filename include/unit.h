@@ -146,17 +146,18 @@ bool unit__prepare_assert(int level, const char* loc, const char* comment, const
 if(unit__prepare_assert(Level, UNIT__FILEPOS, Comment, Description)) Assertion
 
 #define UNIT__IS_TRUE(_, x) (!!(x))
-#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && *(x) != '\0')
-#define UNIT__COMPARE_PRIMITIVE(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
+#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (*(x) != '\0'))
+#define UNIT__CMP(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
+#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a), (b)))
 
 #define UNIT__FOR_ASSERTS(macro) \
-macro(int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(str, const char*, %s, strcmp, UNIT__IS_NOT_EMPTY_STR)
+macro(int, intmax_t, %jd, UNIT__CMP, UNIT__IS_TRUE) \
+macro(uint, uintmax_t, %ju, UNIT__CMP, UNIT__IS_TRUE) \
+macro(dbl, long double, %Lg, UNIT__CMP, UNIT__IS_TRUE) \
+macro(ptr, const void*, %p, UNIT__CMP, UNIT__IS_TRUE) \
+macro(str, const char*, %s, UNIT__STRCMP, UNIT__IS_NOT_EMPTY_STR)
 
-#define UNIT__DEFINE_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
+#define UNIT__DEFINE_ASSERT(Tag, Type, ...) \
 void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb);
 
 UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
@@ -315,7 +316,7 @@ struct unit_test_state unit_test_cur = {0};
 
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
-    static char s_buffer[1024];
+    static char s_buffer[4096];
     vsnprintf(s_buffer, sizeof s_buffer, fmt, args);
     return s_buffer;
 }
