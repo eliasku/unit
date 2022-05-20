@@ -477,11 +477,9 @@ int unit_it_begin(const char* desc, struct unit__it_flags flags) {
 }
 
 const char* unit__status_msg(int status) {
-    const char* dict[] = (const char* [3]) {
-            [UNIT_STATUS_SUCCESS] = UNIT_MSG_SUCCESS,
-            [UNIT_STATUS_SKIPPED] = UNIT_MSG_SKIPPED,
-            [UNIT_STATUS_FAILED] = UNIT_MSG_FAILED,
-    };
+    const char* dict[3] = {UNIT_MSG_SUCCESS,
+                           UNIT_MSG_SKIPPED,
+                           UNIT_MSG_FAILED};
     return dict[status];
 }
 
