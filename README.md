@@ -16,4 +16,4 @@
 
 <sub>✓ηỉτ</sub>
 
-![output](docs/unit-output.png)
+![output](docs/output.png)
