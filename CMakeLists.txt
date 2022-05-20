@@ -20,7 +20,6 @@ if (UNIT_TESTING)
     add_executable(${PROJECT_NAME}
             test/main.c
             test/test_asserts.c
-            #test/test_files.c
             )
 
     target_link_libraries(${PROJECT_NAME} PUBLIC unit)
@@ -28,10 +27,12 @@ if (UNIT_TESTING)
     test_code_coverage(${PROJECT_NAME})
 
     project(vector-example C)
-    add_executable(${PROJECT_NAME} example/vector.c)
+    add_executable(${PROJECT_NAME}
+            example/vector.c
+            example/test_files.c
+            )
     target_link_libraries(${PROJECT_NAME} PUBLIC unit)
     add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
-    set_tests_properties(${PROJECT_NAME} PROPERTIES WILL_FAIL TRUE)
     target_code_coverage(${PROJECT_NAME} PUBLIC)
     test_code_coverage(${PROJECT_NAME})
 
