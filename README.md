@@ -11,8 +11,8 @@
 [![Build](https://github.com/eliasku/unit/actions/workflows/build.yml/badge.svg)](https://github.com/eliasku/unit/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/eliasku/unit/branch/master/graph/badge.svg?token=NFTrtCHQ2r)](https://codecov.io/gh/eliasku/unit)
 
-<a href="https://github.com/eliasku/unit">
-<img width="500" src="images/unit-output.png" alt="unit-output">
-</a>
+![screencast](doc/screencast.gif)
 
-<p align=right><sub>✓ηỉτ</sub></p>
+<sub>✓ηỉτ</sub>
+
+![output](doc/unit-output.png)
