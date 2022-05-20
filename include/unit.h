@@ -146,17 +146,18 @@ bool unit__prepare_assert(int level, const char* loc, const char* comment, const
 if(unit__prepare_assert(Level, UNIT__FILEPOS, Comment, Description)) Assertion
 
 #define UNIT__IS_TRUE(_, x) (!!(x))
-#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && *(x) != '\0')
-#define UNIT__COMPARE_PRIMITIVE(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
+#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (*(x) != '\0'))
+#define UNIT__CMP(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
+#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a), (b)))
 
 #define UNIT__FOR_ASSERTS(macro) \
-macro(int, intmax_t, %jd, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(uint, uintmax_t, %ju, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(dbl, long double, %Lg, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(ptr, const void*, %p, UNIT__COMPARE_PRIMITIVE, UNIT__IS_TRUE) \
-macro(str, const char*, %s, strcmp, UNIT__IS_NOT_EMPTY_STR)
+macro(int, intmax_t, %jd, UNIT__CMP, UNIT__IS_TRUE) \
+macro(uint, uintmax_t, %ju, UNIT__CMP, UNIT__IS_TRUE) \
+macro(dbl, long double, %Lg, UNIT__CMP, UNIT__IS_TRUE) \
+macro(ptr, const void*, %p, UNIT__CMP, UNIT__IS_TRUE) \
+macro(str, const char*, %s, UNIT__STRCMP, UNIT__IS_NOT_EMPTY_STR)
 
-#define UNIT__DEFINE_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
+#define UNIT__DEFINE_ASSERT(Tag, Type, ...) \
 void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb);
 
 UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
@@ -175,7 +176,7 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
         double: unit__assert_dbl, \
         long double: unit__assert_dbl)
 
-#define UNIT__ASSERT(Level, Op, a, b, Desc, comments...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT(b)(a, b, Op, Desc, #a, #b), Level, "" #comments, Desc)
+#define UNIT__ASSERT(Level, Op, a, b, Desc, ...)  UNIT__ASSERT_LAZY(UNIT__SELECT_ASSERT(b)(a, b, Op, Desc, #a, #b), Level, "" #__VA_ARGS__, Desc)
 
 #define UNIT_WARN(x, ...)       UNIT__ASSERT(UNIT__LEVEL_WARN, UNIT__OP_TRUE,  0, x, "warn " #x, __VA_ARGS__)
 #define UNIT_WARN_FALSE(x, ...) UNIT__ASSERT(UNIT__LEVEL_WARN, UNIT__OP_FALSE, 0, x, "warn " #x " is not true", __VA_ARGS__)
@@ -315,7 +316,7 @@ struct unit_test_state unit_test_cur = {0};
 
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
-    static char s_buffer[1024];
+    static char s_buffer[4096];
     vsnprintf(s_buffer, sizeof s_buffer, fmt, args);
     return s_buffer;
 }
@@ -414,8 +415,8 @@ void unit__print_assert(int status) {
         fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
     }
     if (fmt) {
-        const char* desc = unit_test_cur.assert_comment[0] != '\0' ?
-                           unit_test_cur.assert_comment :
+        const char* cm = unit_test_cur.assert_comment;
+        const char* desc = (cm && cm[0] != '\0') ? cm :
                            unit_test_cur.assert_desc;
         UNIT_PRINTF(fmt, unit__spaces(0), desc);
     }
@@ -477,11 +478,9 @@ int unit_it_begin(const char* desc, struct unit__it_flags flags) {
 }
 
 const char* unit__status_msg(int status) {
-    const char* dict[] = (const char* [3]) {
-            [UNIT_STATUS_SUCCESS] = UNIT_MSG_SUCCESS,
-            [UNIT_STATUS_SKIPPED] = UNIT_MSG_SKIPPED,
-            [UNIT_STATUS_FAILED] = UNIT_MSG_FAILED,
-    };
+    const char* dict[3] = {UNIT_MSG_SUCCESS,
+                           UNIT_MSG_SKIPPED,
+                           UNIT_MSG_FAILED};
     return dict[status];
 }
 

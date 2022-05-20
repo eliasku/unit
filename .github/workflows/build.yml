@@ -5,15 +5,32 @@ on: [push]
 jobs:
   build-cmake:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os.os }}
+    strategy:
+      matrix:
+        os:
+          - { os: ubuntu-latest,  shell: bash }
+          - { os: macos-latest,   shell: bash }
+          - { os: windows-latest, shell: msys2 }
+
+    defaults:
+      run:
+        shell: '${{ matrix.os.shell }} {0}'
 
     env:
+      OS: ${{ matrix.os.os }}
       CC: clang
       CXX: clang++
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          path-type: inherit
+          release: false
 
       # llvm-profdata / llvm-cov
       - name: Install LLVM and Clang
@@ -23,7 +40,8 @@ jobs:
           version: "10.0"
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Profiling -DUNIT_TESTING=ON -DCODE_COVERAGE=ON
+        run: cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Profiling -DUNIT_TESTING=ON -DCODE_COVERAGE=ON
+        # -DCMAKE_C_COMPILER_LAUNCHER="clang" -DCMAKE_CXX_COMPILER_LAUNCHER="clang++"
 
       - name: Build
         run: cmake --build build
@@ -40,3 +58,4 @@ jobs:
           files: ./build/coverage.txt
           flags: unittests
           verbose: true
+          env_vars: OS
