@@ -11,6 +11,9 @@ if ($ENV{CLION_IDE})
 endif()
 
 if (UNIT_TESTING)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=vptr -fsanitize=enum -fsanitize=signed-integer-overflow -fsanitize=null -fsanitize=unsigned-integer-overflow -fsanitize=return -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=alignment")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -g -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=vptr -fsanitize=enum -fsanitize=signed-integer-overflow -fsanitize=null -fsanitize=unsigned-integer-overflow -fsanitize=return -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=alignment")
+
     enable_testing()
 
     project(unit-test C)
@@ -19,6 +22,7 @@ if (UNIT_TESTING)
             test/test_files.c
             test/test_asserts.c
             )
+
     target_link_libraries(${PROJECT_NAME} PUBLIC unit)
     add_test(NAME ${PROJECT_NAME} COMMAND $<TARGET_FILE:${PROJECT_NAME}>)
     test_code_coverage(${PROJECT_NAME})

@@ -415,8 +415,8 @@ void unit__print_assert(int status) {
         fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
     }
     if (fmt) {
-        const char* desc = unit_test_cur.assert_comment[0] != '\0' ?
-                           unit_test_cur.assert_comment :
+        const char* cm = unit_test_cur.assert_comment;
+        const char* desc = (cm && cm[0] != '\0') ? cm :
                            unit_test_cur.assert_desc;
         UNIT_PRINTF(fmt, unit__spaces(0), desc);
     }
