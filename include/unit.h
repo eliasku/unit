@@ -375,8 +375,7 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_LE: pass = (BinaryOp(a, b)) <= 0; break; \
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
-        default: return; \
-    }                                                                  \
+    } \
     unit__print_assert(pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
