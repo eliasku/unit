@@ -1,5 +1,6 @@
 // Проверяем, что компиляция заголовка возможна в более чем одной единице сборки (Translation Unit)
 #include <unit.h>
+#include <stdlib.h>
 
 suite(asserts) {
     static int a = 5;

@@ -1,0 +1,15 @@
+{
+  "name": "@ekx/unit",
+  "version": "0.0.1",
+  "description": "Tiny Unit Testing library for C",
+  "files": [
+    "CMakeLists.txt",
+    "include"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:eliasku/unit.git"
+  },
+  "author": "eliasku",
+  "license": "MIT"
+}

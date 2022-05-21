@@ -1,5 +1,4 @@
-#ifndef UNIT_H
-#define UNIT_H
+//#define UNIT_TESTING
 
 // отключить вывод в цвете
 //#define UNIT_NO_COLORS
@@ -9,6 +8,50 @@
 
 // отключить измерение времени
 //#define UNIT_NO_TIME
+
+#ifndef UNIT_H
+#define UNIT_H
+
+#ifndef UNIT_TESTING
+
+#define UNIT__CONCAT(a, b) a ## b
+#define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
+#define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__X_CONCAT(Name, __COUNTER__)(void)
+#define UNIT_DESCRIBE(Name, ...) while(0)
+#define UNIT_IT(Description, ...) while(0)
+
+#define UNIT_ECHO(...)
+
+#define UNIT_WARN(x, ...)
+#define UNIT_WARN_FALSE(x, ...)
+#define UNIT_WARN_EQ(a, b, ...)
+#define UNIT_WARN_NE(a, b, ...)
+#define UNIT_WARN_GT(a, b, ...)
+#define UNIT_WARN_GE(a, b, ...)
+#define UNIT_WARN_LT(a, b, ...)
+#define UNIT_WARN_LE(a, b, ...)
+
+#define UNIT_CHECK(x, ...)
+#define UNIT_CHECK_FALSE(x, ...)
+#define UNIT_CHECK_EQ(a, b, ...)
+#define UNIT_CHECK_NE(a, b, ...)
+#define UNIT_CHECK_GT(a, b, ...)
+#define UNIT_CHECK_GE(a, b, ...)
+#define UNIT_CHECK_LT(a, b, ...)
+#define UNIT_CHECK_LE(a, b, ...)
+
+#define UNIT_REQUIRE(x, ...)
+#define UNIT_REQUIRE_FALSE(x, ...)
+#define UNIT_REQUIRE_EQ(a, b, ...)
+#define UNIT_REQUIRE_NE(a, b, ...)
+#define UNIT_REQUIRE_GT(a, b, ...)
+#define UNIT_REQUIRE_GE(a, b, ...)
+#define UNIT_REQUIRE_LT(a, b, ...)
+#define UNIT_REQUIRE_LE(a, b, ...)
+
+#define UNIT_SKIP()
+
+#else
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -211,6 +254,8 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 }
 #endif
 
+#endif // UNIT_TESTING
+
 // region Короткие формы записи
 
 #define suite(...) UNIT_SUITE(__VA_ARGS__)
@@ -252,7 +297,8 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #endif // UNIT_H
 
-#ifdef UNIT_IMPL
+#if defined(UNIT_IMPL) && !defined(UNIT_C_IMPLEMENTED) && defined(UNIT_TESTING)
+#define UNIT_C_IMPLEMENTED
 
 // region Цвета, текстовые сообщения и логи
 
@@ -550,4 +596,4 @@ int unit_main(int argc, char** argv) {
 }
 #endif
 
-#endif // UNIT_IMPL
+#endif // => UNIT_C_IMPLEMENTED
