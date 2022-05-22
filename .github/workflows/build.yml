@@ -83,6 +83,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install changesets
+        run: npm i -g @changesets/cli
+
       - name: Create Release Pull Request or Publish to NPM
         id: changesets
         uses: changesets/action@v1
