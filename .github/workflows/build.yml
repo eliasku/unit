@@ -72,7 +72,7 @@ jobs:
           env_vars: OS
 
   release:
-#    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/master' }}
     name: Release
     needs: build
     runs-on: ubuntu-latest
