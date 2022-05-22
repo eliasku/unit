@@ -1,9 +1,20 @@
 name: Build
 
-on: [push]
+on:
+  push:
+    # auto-update branches checked by created PR
+    branches-ignore:
+      - 'update/*'
+    paths-ignore:
+      - '.changeset/**'
+
+  # only test check PR to master
+  pull_request:
+    branches:
+      - master
 
 jobs:
-  build-cmake:
+  build:
     name: Build
     runs-on: ${{ matrix.os.os }}
     strategy:
@@ -40,7 +51,7 @@ jobs:
           version: "10.0"
 
       - name: Configure
-        run: cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Profiling -DUNIT_TESTING=ON -DCODE_COVERAGE=ON
+        run: cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Profiling -DUNIT_LIBRARY_PROJECT=ON -DCODE_COVERAGE=ON
         # -DCMAKE_C_COMPILER_LAUNCHER="clang" -DCMAKE_CXX_COMPILER_LAUNCHER="clang++"
 
       - name: Build
@@ -59,3 +70,29 @@ jobs:
           flags: unittests
           verbose: true
           env_vars: OS
+
+  release:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install changesets
+        run: npm i -g @changesets/cli
+
+      - name: Create Release Pull Request or Publish to NPM
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # This expects you to have a script called release which does a build for your packages and calls changeset publish
+          publish: changeset publish
+          version: changeset version && yarn && git add yarn.lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
