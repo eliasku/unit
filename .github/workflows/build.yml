@@ -91,5 +91,5 @@ jobs:
           publish: changeset publish
           version: changeset version && yarn && git add yarn.lock
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

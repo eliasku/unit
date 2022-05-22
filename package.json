@@ -11,5 +11,8 @@
     "url": "git@github.com:eliasku/unit.git"
   },
   "author": "eliasku",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }
