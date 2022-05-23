@@ -84,7 +84,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install changesets
-        run: npm i -g @changesets/cli
+        run: yarn add --dev @changesets/cli
 
       - name: Create Release Pull Request or Publish to NPM
         id: changesets
