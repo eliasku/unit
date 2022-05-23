@@ -4,7 +4,11 @@ project(unit C)
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE include)
 
-if ($ENV{CLION_IDE})
+# alias for NPM library name
+add_library(ekx::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+# STANDALONE project
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(UNIT_LIBRARY_PROJECT ON)
 endif ()
 

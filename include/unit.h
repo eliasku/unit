@@ -208,7 +208,9 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #define UNIT__SELECT_ASSERT(x) \
     _Generic((x), \
         void*: unit__assert_ptr, \
+        const void*: unit__assert_ptr, \
         char*: unit__assert_str, \
+        const char*: unit__assert_str, \
         bool: unit__assert_int, \
         int: unit__assert_int, \
         long long: unit__assert_int, \
