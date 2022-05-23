@@ -2,6 +2,10 @@
   "name": "@ekx/unit",
   "version": "0.0.2",
   "description": "Tiny Unit Testing library for C",
+  "scripts": {
+    "release": "changeset publish",
+    "version": "changeset version && yarn && git add yarn.lock"
+  },
   "files": [
     "CMakeLists.txt",
     "include"
