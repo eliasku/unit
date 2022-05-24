@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
 
+# STANDALONE project
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(UNIT_LIBRARY_PROJECT ON)
+endif ()
+
 project(unit C)
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE include)
@@ -7,9 +12,8 @@ target_include_directories(${PROJECT_NAME} INTERFACE include)
 # alias for NPM library name
 add_library(ekx::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-# STANDALONE project
-if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(UNIT_LIBRARY_PROJECT ON)
+if (UNIT_LIBRARY_PROJECT)
+    add_subdirectory(src)
 endif ()
 
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=enum -fsanitize=signed-integer-overflow -fsanitize=null -fsanitize=unsigned-integer-overflow -fsanitize=return -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=alignment")

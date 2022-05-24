@@ -1,3 +1,23 @@
+/**
+ * unit.h - v0.0.2 - Simple header-only testing library for C - https://github.com/eliasku/unit
+**/
+/**
+ * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
+ * 
+ * ```c
+ * #define UNIT_IMPL
+ * #include "unit.h"
+ *
+ * suite( you_should_define_the_suite_name_here ) {
+ *   describe( optionally_add_the_subject ) {
+ *     it( "describe the test behaviour" ) {
+ *       check("use warn / check / require functions");
+ *     }
+ *   }
+ * }
+ * ```
+**/
+
 //#define UNIT_TESTING
 
 // отключить вывод в цвете
@@ -14,9 +34,9 @@
 
 #ifndef UNIT_TESTING
 
-#define UNIT__CONCAT(a, b) a ## b
-#define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
-#define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__X_CONCAT(Name, __COUNTER__)(void)
+#define UNIT__CONCAT_(a, b) a ## b
+#define UNIT__CONCAT(a, b) UNIT__CONCAT_(a, b)
+#define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__CONCAT(Name, __COUNTER__)(void)
 #define UNIT_DESCRIBE(Name, ...) while(0)
 #define UNIT_IT(Description, ...) while(0)
 
@@ -51,6 +71,7 @@
 
 #define UNIT_SKIP()
 
+
 #else
 
 #include <stdbool.h>
@@ -65,10 +86,11 @@
 extern "C" {
 #endif
 
-extern const char* unit__msg_echo;
-
-#define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
-#define UNIT_ECHO(msg) UNIT_PRINTF(unit__msg_echo, unit__spaces(0), msg)
+enum {
+    UNIT_STATUS_SUCCESS = 0,
+    UNIT_STATUS_SKIPPED = 1,
+    UNIT_STATUS_FAILED = 2
+};
 
 enum {
     UNIT__OP_TRUE = 0,
@@ -92,6 +114,10 @@ struct unit_test {
     const char* name;
     const char* src;
     double t0;
+    double elapsed_time;
+
+    // 0 - group, 1 - test
+    int kind;
 
     void (* fn)(void);
 
@@ -102,41 +128,39 @@ struct unit_test {
     int passed;
     bool allow_fail;
     bool skip;
-};
 
-extern int unit_depth;
-
-const char* unit__spaces(int delta);
-
-struct unit_test_state {
+    // test
     // status of current assertion
     int status;
     // state for this test scope
     // позволять ли дальше работать другим проверкам в рамках этого теста
     int state;
-    double t0;
-    const char* desc;
     const char* assert_comment;
     const char* assert_desc;
     const char* assert_loc;
     int assert_level;
 };
 
-struct unit__it_flags {
-    bool skip;
-};
-
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
-extern struct unit_test_state unit_test_cur;
 
-int unit_it_begin(const char* desc, struct unit__it_flags flags);
+struct unit_printer {
+    void (* begin)(struct unit_test* unit);
 
-void unit_it_end(void);
+    void (* end)(struct unit_test* unit);
 
-int unit_begin(struct unit_test* unit);
+    void (* fail)(struct unit_test* unit, const char* msg);
 
-void unit_end(struct unit_test* unit);
+    void (* assertion)(struct unit_test* unit, int status);
+
+    void (* echo)(const char* msg);
+};
+
+extern struct unit_printer unit_printer;
+
+int unit__begin(struct unit_test* unit);
+
+void unit__end(struct unit_test* unit);
 
 int unit_main(int argc, char** argv);
 
@@ -169,11 +193,15 @@ int unit_main(int argc, char** argv);
 
 #define UNIT__DESCRIBE(Var, Name, ...) \
     static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-    UNIT_TRY_SCOPE(unit_begin(&Var), unit_end(&Var))
+    UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
 #define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT_IT(Description, ...) UNIT_TRY_SCOPE(unit_it_begin(Description, (struct unit__it_flags){__VA_ARGS__}), unit_it_end())
+#define UNIT__TEST(Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){.name = Name, .kind = 1, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+    UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
+
+#define UNIT_TEST(Name, ...) UNIT__TEST(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
 /** Assert functions **/
 
@@ -250,7 +278,8 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #define UNIT_REQUIRE_LT(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LT, a, b, "require " #a " < " #b, __VA_ARGS__)
 #define UNIT_REQUIRE_LE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
 
-#define UNIT_SKIP() unit_test_cur.state |= UNIT__LEVEL_REQUIRE
+#define UNIT_SKIP() unit_cur->state |= UNIT__LEVEL_REQUIRE
+#define UNIT_ECHO(msg) unit_printer.echo(msg)
 
 #ifdef __cplusplus
 }
@@ -258,12 +287,10 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #endif // UNIT_TESTING
 
-// region Короткие формы записи
-
 #define suite(...) UNIT_SUITE(__VA_ARGS__)
 #define describe(...) UNIT_DESCRIBE(__VA_ARGS__)
-#define it(...) UNIT_IT(__VA_ARGS__)
-#define test(...) UNIT_IT(__VA_ARGS__)
+#define it(...) UNIT_TEST(__VA_ARGS__)
+#define test(...) UNIT_TEST(__VA_ARGS__)
 #define echo(...) UNIT_ECHO(__VA_ARGS__)
 
 #define warn(...)       UNIT_WARN(__VA_ARGS__)
@@ -295,12 +322,25 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #define skip(...) UNIT_SKIP(__VA_ARGS__)
 
-// endregion
 
 #endif // UNIT_H
 
+
 #if defined(UNIT_IMPL) && !defined(UNIT_C_IMPLEMENTED) && defined(UNIT_TESTING)
 #define UNIT_C_IMPLEMENTED
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef UNIT_NO_MAIN
+
+int main(int argc, char** argv) {
+    srand(time(NULL));
+    return unit_main(argc, argv);
+}
+
+#endif // UNIT_NO_MAIN
+
 
 // region Цвета, текстовые сообщения и логи
 
@@ -335,39 +375,11 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 //#define UNIT_MSG_ECHO "💬"
 //#define UNIT_MSG_ECHO "#"
-const char* unit__msg_echo = "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n";
+#define UNIT_MSG_ECHO "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
 
-enum {
-    UNIT_STATUS_SUCCESS = 0,
-    UNIT_STATUS_SKIPPED = 1,
-    UNIT_STATUS_FAILED = 2
-};
+#define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
 
-// endregion
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef UNIT_NO_MAIN
-
-int main(int argc, char** argv) {
-    srand(time(NULL));
-    return unit_main(argc, argv);
-}
-
-#endif // UNIT_NO_MAIN
-
-struct unit_test* unit_tests = NULL;
-struct unit_test* unit_cur = NULL;
-struct unit_test_state unit_test_cur = {0};
-
-// region утилиты для вывода
-const char* unit__vbprintf(const char* fmt, va_list args) {
-    static char s_buffer[4096];
-    vsnprintf(s_buffer, sizeof s_buffer, fmt, args);
-    return s_buffer;
-}
+// region reporting
 
 const char* unit_spaces[8] = {
         "",
@@ -386,6 +398,92 @@ const char* unit__spaces(int delta) {
     if (i < 0) i = 0;
     if (i > 7) i = 7;
     return unit_spaces[i];
+}
+
+const char* unit__status_msg(int status) {
+    const char* dict[3] = {UNIT_MSG_SUCCESS,
+                           UNIT_MSG_SKIPPED,
+                           UNIT_MSG_FAILED};
+    return dict[status];
+}
+
+static bool unit_prev_print_results = false;
+
+void unit__on_begin(struct unit_test* unit) {
+    const char* fmt = unit->kind == 0 ? UNIT_MSG_TESTING : UNIT_MSG_RUN;
+    UNIT_PRINTF(fmt, unit__spaces(0), unit->name);
+    ++unit_depth;
+    unit_prev_print_results = false;
+}
+
+void unit__on_end(struct unit_test* unit) {
+    if (unit->kind == 1) {
+        UNIT_PRINTF(unit__status_msg(unit->status),
+                    unit__spaces(0), unit->name,
+                    unit->elapsed_time);
+        --unit_depth;
+        return;
+    }
+
+    // добавляем дополнительный отступ между блоками
+    if (unit_prev_print_results) {
+        putchar('\n');
+    }
+    --unit_depth;
+    if (unit->skip) {
+        UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, unit->elapsed_time);
+    } else {
+        UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, unit->elapsed_time);
+    }
+    unit_prev_print_results = true;
+}
+
+void unit__on_fail(struct unit_test* unit, const char* msg) {
+    UNIT_PRINTF("%s%s\n"
+                "%sin %s (%s)\n",
+                unit__spaces(1), msg,
+                unit__spaces(1), unit->assert_loc, unit_cur->name);
+}
+
+void unit__on_assert(struct unit_test* unit, int status) {
+    const char* fmt = NULL;
+    if (status == UNIT_STATUS_SKIPPED) {
+        fmt = "%sⅡ Skip: %s\n";
+    } else if (status == UNIT_STATUS_SUCCESS) {
+        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
+    } else if (status == UNIT_STATUS_FAILED) {
+        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
+    }
+    if (fmt) {
+        const char* cm = unit->assert_comment;
+        const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
+        UNIT_PRINTF(fmt, unit__spaces(0), desc);
+    }
+}
+
+void unit__on_echo(const char* msg) {
+    UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg);
+}
+
+// endregion reporting
+
+struct unit_printer unit_printer = (struct unit_printer) {
+        .begin = unit__on_begin,
+        .end = unit__on_end,
+        .fail = unit__on_fail,
+        .assertion = unit__on_assert,
+        .echo = unit__on_echo
+};
+
+
+struct unit_test* unit_tests = NULL;
+struct unit_test* unit_cur = NULL;
+
+// region утилиты для вывода
+const char* unit__vbprintf(const char* fmt, va_list args) {
+    static char s_buffer[4096];
+    vsnprintf(s_buffer, sizeof s_buffer, fmt, args);
+    return s_buffer;
 }
 
 // endregion
@@ -442,40 +540,23 @@ void unit__fail_impl(const char* fmt, ...) {
     const char* msg = unit__vbprintf(fmt, args);
     va_end(args);
 
-    if (unit_test_cur.assert_level > UNIT__LEVEL_WARN) {
-        unit_test_cur.status = UNIT_STATUS_FAILED;
-        unit_test_cur.state |= unit_test_cur.assert_level;
+    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
+        unit_cur->status = UNIT_STATUS_FAILED;
+        unit_cur->state |= unit_cur->assert_level;
     }
-    UNIT_PRINTF("%s%s\n"
-                "%sin %s (%s : %s)\n",
-                unit__spaces(1), msg,
-                unit__spaces(1), unit_test_cur.assert_loc, unit_cur->name, unit_test_cur.desc
-    );
+    unit_printer.fail(unit_cur, msg);
 }
 
 void unit__print_assert(int status) {
-    const char* fmt = NULL;
-    if (status == UNIT_STATUS_SKIPPED) {
-        fmt = "%sⅡ Skip: %s\n";
-    } else if (status == UNIT_STATUS_SUCCESS) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
-    } else if (status == UNIT_STATUS_FAILED) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
-    }
-    if (fmt) {
-        const char* cm = unit_test_cur.assert_comment;
-        const char* desc = (cm && cm[0] != '\0') ? cm :
-                           unit_test_cur.assert_desc;
-        UNIT_PRINTF(fmt, unit__spaces(0), desc);
-    }
+    unit_printer.assertion(unit_cur, status);
 }
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
-    unit_test_cur.assert_comment = comment;
-    unit_test_cur.assert_desc = desc;
-    unit_test_cur.assert_level = level;
-    unit_test_cur.assert_loc = loc;
-    if (unit_test_cur.state & UNIT__LEVEL_REQUIRE) {
+    unit_cur->assert_comment = comment;
+    unit_cur->assert_desc = desc;
+    unit_cur->assert_level = level;
+    unit_cur->assert_loc = loc;
+    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
         // пропустить проверку
         unit__print_assert(UNIT_STATUS_SKIPPED);
         return false;
@@ -504,78 +585,41 @@ double unit__time(double prev) {
 
 // region начало конец запуска каждого теста
 
-int unit_it_begin(const char* desc, struct unit__it_flags flags) {
-    UNIT_PRINTF(UNIT_MSG_RUN, unit__spaces(0), desc);
-    unit_test_cur.state = 0;
-    unit_test_cur.status = UNIT_STATUS_SUCCESS;
-    unit_test_cur.t0 = unit__time(0.0);
-    unit_test_cur.desc = desc;
-    unit_test_cur.assert_desc = NULL;
-
-    ++unit_depth;
-
-    for (struct unit_test* u = unit_cur; u; u = u->parent) {
-        u->total++;
-    }
-
-    if (flags.skip) {
-        unit_test_cur.status = UNIT_STATUS_SKIPPED;
-    }
-
-    return !flags.skip;
-}
-
-const char* unit__status_msg(int status) {
-    const char* dict[3] = {UNIT_MSG_SUCCESS,
-                           UNIT_MSG_SKIPPED,
-                           UNIT_MSG_FAILED};
-    return dict[status];
-}
-
-void unit_it_end(void) {
-    const bool success = unit_test_cur.status != UNIT_STATUS_FAILED;
-    bool allow_fail = false;
-    for (struct unit_test* u = unit_cur; u; u = u->parent) {
-        allow_fail = allow_fail || u->allow_fail;
-        if (success || allow_fail) {
-            u->passed++;
-        }
-    }
-    double elapsed_time = unit__time(unit_test_cur.t0);
-    UNIT_PRINTF(unit__status_msg(unit_test_cur.status), unit__spaces(0), unit_test_cur.desc,
-                elapsed_time);
-
-    --unit_depth;
-}
-
-static bool unit_prev_print_results = false;
-
-int unit_begin(struct unit_test* unit) {
+int unit__begin(struct unit_test* unit) {
+    unit->t0 = unit__time(0.0);
+    unit->state = 0;
+    unit->status = UNIT_STATUS_SUCCESS;
+    unit->assert_desc = NULL;
     unit->parent = unit_cur;
     unit_cur = unit;
-    unit->t0 = unit__time(0.0);
+    unit_printer.begin(unit);
 
-    UNIT_PRINTF(UNIT_MSG_TESTING, unit__spaces(0), unit->name);
-    unit_prev_print_results = false;
-    ++unit_depth;
+    if (unit->kind == 1) {
+        for (struct unit_test* u = unit_cur; u; u = u->parent) {
+            u->total++;
+        }
+    }
+
+    if (unit->skip) {
+        unit->status = UNIT_STATUS_SKIPPED;
+    }
 
     return !unit->skip;
 }
 
-void unit_end(struct unit_test* unit) {
-    const double elapsed_time = unit__time(unit->t0);
-    // добавляем дополнительный отступ между блоками
-    if (unit_prev_print_results) {
-        putchar('\n');
+void unit__end(struct unit_test* unit) {
+    if (unit->kind == 1) {
+        const bool success = unit->status != UNIT_STATUS_FAILED;
+        bool allow_fail = false;
+        for (struct unit_test* u = unit_cur; u; u = u->parent) {
+            allow_fail = allow_fail || u->allow_fail;
+            if (success || allow_fail) {
+                u->passed++;
+            }
+        }
     }
-    --unit_depth;
-    if (unit->skip) {
-        UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, elapsed_time);
-    } else {
-        UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, elapsed_time);
-    }
-    unit_prev_print_results = true;
-
+    unit->elapsed_time = unit__time(unit->t0);
+    unit_printer.end(unit);
     unit_cur = unit->parent;
 }
 
@@ -585,7 +629,7 @@ int unit_main(int argc, char** argv) {
 
     int failed = 0;
     for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
-        UNIT_TRY_SCOPE(unit_begin(unit), unit_end(unit)) unit->fn();
+        UNIT_TRY_SCOPE(unit__begin(unit), unit__end(unit)) unit->fn();
         failed += (unit->passed < unit->total) ? 1 : 0;
     }
 
@@ -597,5 +641,6 @@ int unit_main(int argc, char** argv) {
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif // => UNIT_C_IMPLEMENTED

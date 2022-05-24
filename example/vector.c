@@ -43,6 +43,7 @@ void* vector_get(vector* vec, size_t idx) {
 }
 
 #define UNIT_IMPL
+
 #include <unit.h>
 
 suite(vector, .allow_fail = true) {
@@ -68,10 +69,10 @@ suite(vector, .allow_fail = true) {
         vector_free(&vec);
     }
 
-#define it_vec(name) UNIT_SCOPE( \
+#define it_vec(name) it(name) UNIT_SCOPE( \
 /* before: */ vector_init(&vec, sizeof(int)), \
 /* after:  */ vector_free(&vec) \
-) it(name)
+)
 
     it_vec("allocates vectors based on elem_size") {
             vector_alloc(&vec, 10);

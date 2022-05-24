@@ -3,6 +3,7 @@ project(unit-test C CXX)
 
 add_executable(${PROJECT_NAME}
         main.c
+        fun.c
         test_asserts.c
         main.cpp
         )

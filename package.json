@@ -1,10 +1,11 @@
 {
   "name": "@ekx/unit",
   "version": "0.0.2",
-  "description": "Tiny Unit Testing library for C",
+  "description": "Simple header-only testing library for C",
   "scripts": {
     "release": "changeset publish",
-    "version": "changeset version && yarn && git add yarn.lock"
+    "version": "changeset version && yarn && git add yarn.lock",
+    "build": "node src/amalgamate.js"
   },
   "files": [
     "CMakeLists.txt",

@@ -14,6 +14,23 @@
 
 ![screencast](docs/screencast.gif)
 
+## Example
+
+Compile executable with `-D UNIT_TESTING` to enable tests
+
+```c
+#define UNIT_IMPL
+#include "unit.h"
+
+suite( you_should_define_the_suite_name_here ) {
+  describe( optionally_add_the_subject ) {
+    it( "describe behaviour" ) {
+      check("use warn / check / require functions");
+    }
+  }
+}
+```
+
 <sub>✓ηỉτ</sub>
 
 ![output](docs/output.png)
