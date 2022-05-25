@@ -38,6 +38,11 @@
  */
 // #define UNIT_NO_TIME
 
+/**
+ * Add run details to the output (echo, assertions)
+ */
+// #define UNIT_VERBOSE
+
 #include "unit-def.h"
 
 #if defined(UNIT_IMPL) && !defined(UNIT_C_IMPLEMENTED) && defined(UNIT_TESTING)

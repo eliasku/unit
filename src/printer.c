@@ -8,7 +8,7 @@
 #define UNIT_COLOR_WHITE "\033[97m"
 #define UNIT_COLOR_MAYBE "\033[35m"
 #define UNIT_COLOR_COMMENT "\033[36m"
-#define UNIT_COLOR_SUCCESS "\033[92m"
+#define UNIT_COLOR_SUCCESS "\033[32m"
 #define UNIT_COLOR_FAIL "\033[91m"
 #define UNIT_COLOR_DESC "\033[33m"
 #else
@@ -48,7 +48,7 @@
 
 // $prefix 0 Status: $message
 #define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET ":\n"
-#define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN "%s" UNIT_COLOR_RESET "\n"
 #define UNIT_MSG_OK         "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
 #define UNIT_MSG_SKIP       "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
 #define UNIT_MSG_FAIL       "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
@@ -60,7 +60,8 @@
 
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
 
-static int unit__verbose = 0;
+#define UNIT__LOG_PREFIX "` "
+
 // region reporting
 
 const char* unit_spaces[8] = {
@@ -85,8 +86,6 @@ const char* unit__spaces(int delta) {
 const char* unit__log_prefix(int delta) {
     return unit__spaces(delta - 1);
 }
-
-#define UNIT__LOG_PREFIX "` "
 
 const char* unit__status_msg(int status) {
     const char* dict[3] = {UNIT_MSG_OK,
@@ -113,9 +112,9 @@ void unit__on_begin(struct unit_test* unit) {
             putchar('\n');
             UNIT_PRINTF(UNIT_MSG_CASE, unit__spaces(0), unit->name);
         } else {
-            if (unit__verbose) {
-                UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), unit->name);
-            }
+#ifdef UNIT_VERBOSE
+            UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), unit->name);
+#endif
         }
     }
 
@@ -147,8 +146,11 @@ void unit__on_end(struct unit_test* unit) {
     } else {
         result = UNIT_MSG_RESULT_OK;
     }
-    if (unit__verbose || unit_depth == 0) {
-        if (result) {
+    if (result) {
+#ifndef UNIT_VERBOSE
+        if(unit_depth == 0)
+#endif
+        {
             UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
             unit__end_line(unit->elapsed_time);
             unit_prev_print_results = true;
@@ -160,34 +162,28 @@ void unit__on_fail(struct unit_test* unit, const char* msg) {
     UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
                 unit__spaces(0), unit_cur->name);
     UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
-    UNIT_PRINTF("%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
-                unit__spaces(1), unit->assert_loc);
+    UNIT_PRINTF(
+            "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
+            unit__spaces(1), unit->assert_loc);
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {
-    const char* fmt = NULL;
-
-    if (unit__verbose) {
-        if (status == UNIT_STATUS_FAILED) {
-            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n";
-        } else if (status == UNIT_STATUS_SKIPPED) {
-            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n";
-        } else if (status == UNIT_STATUS_SUCCESS) {
-            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n";
-        }
-    }
-
-    if (fmt) {
-        const char* cm = unit->assert_comment;
-        const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
-        UNIT_PRINTF(fmt, unit__log_prefix(0), desc);
-    }
+#ifdef UNIT_VERBOSE
+    static const char* fmts[3] = {
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n",
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n",
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n"
+    };
+    const char* cm = unit->assert_comment;
+    const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
+    UNIT_PRINTF(fmts[status], unit__log_prefix(0), desc);
+#endif
 }
 
 void unit__on_echo(const char* msg) {
-    if (unit__verbose) {
-        UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_ECHO, unit__log_prefix(0), msg);
-    }
+#ifdef UNIT_VERBOSE
+    UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_ECHO, unit__log_prefix(0), msg);
+#endif
 }
 
 // endregion reporting
