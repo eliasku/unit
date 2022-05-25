@@ -46,7 +46,7 @@
 #define UNIT__CONCAT(a, b) UNIT__CONCAT_(a, b)
 #define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__CONCAT(Name, __COUNTER__)(void)
 #define UNIT_DESCRIBE(Name, ...) while(0)
-#define UNIT_IT(Description, ...) while(0)
+#define UNIT_TEST(Description, ...) while(0)
 
 #define UNIT_ECHO(...)
 
