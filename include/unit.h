@@ -1,9 +1,8 @@
 /**
  * unit.h - v0.0.2 - Simple header-only testing library for C - https://github.com/eliasku/unit
-**/
-/**
+ *
  * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
- * 
+ *
  * ```c
  * #define UNIT_IMPL
  * #include "unit.h"
@@ -16,19 +15,28 @@
  *   }
  * }
  * ```
-**/
+ *
+ **/
 
-//#define UNIT_TESTING
+/**
+ * Enable unit testing
+ **/
+// #define UNIT_TESTING
 
-// отключить вывод в цвете
-//#define UNIT_NO_COLORS
+/**
+ * Disable colorful output
+ */
+// #define UNIT_NO_COLORS
 
-// отключить точку входа по-умолчанию
-//#define UNIT_NO_MAIN
+/**
+ * Disable default `main` generation
+ */
+// #define UNIT_NO_MAIN
 
-// отключить измерение времени
-//#define UNIT_NO_TIME
-
+/**
+ * Disable time measurements
+ */
+// #define UNIT_NO_TIME
 #ifndef UNIT_H
 #define UNIT_H
 
@@ -340,13 +348,13 @@ int main(int argc, char** argv) {
 }
 
 #endif // UNIT_NO_MAIN
-
-
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
 #define UNIT_COLOR_RESET "\033[0m"
 #define UNIT_COLOR_BOLD "\033[1m"
+#define UNIT_COLOR_DIM "\033[2m"
+#define UNIT_COLOR_UNDERLINE "\033[4m"
 #define UNIT_COLOR_WHITE "\033[97m"
 #define UNIT_COLOR_MAYBE "\033[35m"
 #define UNIT_COLOR_COMMENT "\033[36m"
@@ -356,6 +364,8 @@ int main(int argc, char** argv) {
 #else
 #define UNIT_COLOR_RESET
 #define UNIT_COLOR_BOLD
+#define UNIT_COLOR_DIM
+#define UNIT_COLOR_UNDERLINE
 #define UNIT_COLOR_WHITE
 #define UNIT_COLOR_MAYBE
 #define UNIT_COLOR_COMMENT
@@ -364,21 +374,43 @@ int main(int argc, char** argv) {
 #define UNIT_COLOR_DESC
 #endif
 
+/**
+ * Alternative icons:
+ * message icons: "💬 ", "# ", "ℹ ", " ⃫ "
+ * skip icons: "Ⅱ "
+ */
+#define UNIT__ICON_OK       UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET
+#define UNIT__ICON_FAIL     UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET
+#define UNIT__ICON_ASSERT   UNIT_COLOR_BOLD UNIT_COLOR_FAIL "● " UNIT_COLOR_RESET
+#define UNIT__ICON_RUN      UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET
+#define UNIT__ICON_SKIP     UNIT_COLOR_BOLD UNIT_COLOR_DIM "∅ " UNIT_COLOR_RESET
+#define UNIT__ICON_MSG      UNIT_COLOR_BOLD UNIT_COLOR_COMMENT "» " UNIT_COLOR_RESET
+//#define UNIT__ICON_LI       "◆ "
+#define UNIT__ICON_LI
+
+//#define UNIT__TXT_OK        UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "OK: " UNIT_COLOR_RESET
+//#define UNIT__TXT_FAIL      UNIT_COLOR_BOLD UNIT_COLOR_FAIL "Fail: " UNIT_COLOR_RESET
+//#define UNIT__TXT_SKIP      UNIT_COLOR_BOLD "Skip: " UNIT_COLOR_RESET
+
+#define UNIT__TXT_OK
+#define UNIT__TXT_FAIL
+#define UNIT__TXT_SKIP
+
 // $prefix 0 Status: $message
-#define UNIT_MSG_TESTING "\n%s" "◆ " UNIT_COLOR_BOLD UNIT_COLOR_WHITE "Testing %s" UNIT_COLOR_RESET ":\n"
-#define UNIT_MSG_RUN "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s" UNIT_COLOR_RESET "\n"
-#define UNIT_MSG_SUCCESS "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Success: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "Ⅱ " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_FAILED "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+#define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET ":\n"
+#define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_OK         "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_SKIP       "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_FAIL       "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_ECHO       "%s" UNIT__ICON_MSG UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
 
-#define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
-
-//#define UNIT_MSG_ECHO "💬"
-//#define UNIT_MSG_ECHO "#"
-#define UNIT_MSG_ECHO "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_RESULT_SKIP "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
+#define UNIT_MSG_RESULT_FAIL "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
+#define UNIT_MSG_RESULT_OK  "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
 
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
 
+static int unit__verbose = 0;
 // region reporting
 
 const char* unit_spaces[8] = {
@@ -400,28 +432,55 @@ const char* unit__spaces(int delta) {
     return unit_spaces[i];
 }
 
+const char* unit__log_prefix(int delta) {
+    return unit__spaces(delta - 1);
+}
+
+#define UNIT__LOG_PREFIX "` "
+
 const char* unit__status_msg(int status) {
-    const char* dict[3] = {UNIT_MSG_SUCCESS,
-                           UNIT_MSG_SKIPPED,
-                           UNIT_MSG_FAILED};
+    const char* dict[3] = {UNIT_MSG_OK,
+                           UNIT_MSG_SKIP,
+                           UNIT_MSG_FAIL};
     return dict[status];
+}
+
+void unit__end_line(double elapsed_time) {
+    if (elapsed_time >= 0.01) {
+        UNIT_PRINTF(UNIT_COLOR_DIM " (%0.2lf ms)" UNIT_COLOR_RESET, elapsed_time);
+    }
+    putchar('\n');
 }
 
 static bool unit_prev_print_results = false;
 
 void unit__on_begin(struct unit_test* unit) {
-    const char* fmt = unit->kind == 0 ? UNIT_MSG_TESTING : UNIT_MSG_RUN;
-    UNIT_PRINTF(fmt, unit__spaces(0), unit->name);
+    if (unit->skip) {
+        UNIT_PRINTF(UNIT_MSG_SKIP, unit__spaces(0), unit->name);
+        unit__end_line(0.0);
+    } else {
+        if (unit->kind == 0) {
+            putchar('\n');
+            UNIT_PRINTF(UNIT_MSG_CASE, unit__spaces(0), unit->name);
+        } else {
+            if (unit__verbose) {
+                UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), unit->name);
+            }
+        }
+    }
+
     ++unit_depth;
     unit_prev_print_results = false;
 }
 
 void unit__on_end(struct unit_test* unit) {
     if (unit->kind == 1) {
-        UNIT_PRINTF(unit__status_msg(unit->status),
-                    unit__spaces(0), unit->name,
-                    unit->elapsed_time);
         --unit_depth;
+        if (!unit->skip) {
+            UNIT_PRINTF(unit__status_msg(unit->status),
+                        unit__spaces(0), unit->name);
+            unit__end_line(unit->elapsed_time);
+        }
         return;
     }
 
@@ -430,39 +489,55 @@ void unit__on_end(struct unit_test* unit) {
         putchar('\n');
     }
     --unit_depth;
+    const char* result = 0;
     if (unit->skip) {
-        UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, unit->elapsed_time);
+
+    } else if (unit->passed < unit->total) {
+        result = UNIT_MSG_RESULT_FAIL;
     } else {
-        UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, unit->elapsed_time);
+        result = UNIT_MSG_RESULT_OK;
     }
-    unit_prev_print_results = true;
+    if (unit__verbose || unit_depth == 0) {
+        if (result) {
+            UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
+            unit__end_line(unit->elapsed_time);
+            unit_prev_print_results = true;
+        }
+    }
 }
 
 void unit__on_fail(struct unit_test* unit, const char* msg) {
-    UNIT_PRINTF("%s%s\n"
-                "%sin %s (%s)\n",
-                unit__spaces(1), msg,
-                unit__spaces(1), unit->assert_loc, unit_cur->name);
+    UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
+                unit__spaces(0), unit_cur->name);
+    UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
+    UNIT_PRINTF("%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
+                unit__spaces(1), unit->assert_loc);
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {
     const char* fmt = NULL;
-    if (status == UNIT_STATUS_SKIPPED) {
-        fmt = "%sⅡ Skip: %s\n";
-    } else if (status == UNIT_STATUS_SUCCESS) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
-    } else if (status == UNIT_STATUS_FAILED) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
+
+    if (unit__verbose) {
+        if (status == UNIT_STATUS_FAILED) {
+            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n";
+        } else if (status == UNIT_STATUS_SKIPPED) {
+            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n";
+        } else if (status == UNIT_STATUS_SUCCESS) {
+            fmt = UNIT__LOG_PREFIX "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n";
+        }
     }
+
     if (fmt) {
         const char* cm = unit->assert_comment;
         const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
-        UNIT_PRINTF(fmt, unit__spaces(0), desc);
+        UNIT_PRINTF(fmt, unit__log_prefix(0), desc);
     }
 }
 
 void unit__on_echo(const char* msg) {
-    UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg);
+    if (unit__verbose) {
+        UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_ECHO, unit__log_prefix(0), msg);
+    }
 }
 
 // endregion reporting
@@ -527,8 +602,8 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
-        if (op < UNIT__OP_EQ) unit__fail_impl("Expected `%s`%s, but got `" #FormatType "%s`", sb, expl, b, nexpl); \
-        else unit__fail_impl("Expected `%s`%s`%s`, but got `" #FormatType "%s" #FormatType "`", sa, expl, sb, a, nexpl, b); \
+        if (op < UNIT__OP_EQ) unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s" UNIT_COLOR_RESET ", but got `" UNIT_COLOR_FAIL #FormatType "%s`" UNIT_COLOR_RESET, sb, expl, b, nexpl); \
+        else unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s`%s`" UNIT_COLOR_RESET ", but got " UNIT_COLOR_FAIL "`" #FormatType "%s" #FormatType "`" UNIT_COLOR_RESET, sa, expl, sb, a, nexpl, b); \
     } \
 }
 

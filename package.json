@@ -5,7 +5,8 @@
   "scripts": {
     "release": "changeset publish",
     "version": "changeset version && yarn && git add yarn.lock",
-    "build": "node src/amalgamate.js"
+    "build": "node src/amalgamate.js",
+    "test": "./test.sh"
   },
   "files": [
     "CMakeLists.txt",
@@ -15,9 +16,27 @@
     "type": "git",
     "url": "git@github.com:eliasku/unit.git"
   },
-  "author": "eliasku",
+  "author": "Ilya Kuzmichev <eliasku.games@gmail.com> (https://eliasku-games.web.app)",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
+  },
+  "keywords": [
+    "c",
+    "testing",
+    "unit-testing",
+    "cmake",
+    "embedded",
+    "cross-platform",
+    "bdd",
+    "assertions",
+    "clang",
+    "kiss",
+    "header-only",
+    "single-header-library"
+  ],
+  "bugs": {
+    "url": "https://github.com/eliasku/unit/issues",
+    "email": "eliasku.games@gmail.com"
   }
 }

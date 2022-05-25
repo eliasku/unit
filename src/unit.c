@@ -64,8 +64,8 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
-        if (op < UNIT__OP_EQ) unit__fail_impl("Expected `%s`%s, but got `" #FormatType "%s`", sb, expl, b, nexpl); \
-        else unit__fail_impl("Expected `%s`%s`%s`, but got `" #FormatType "%s" #FormatType "`", sa, expl, sb, a, nexpl, b); \
+        if (op < UNIT__OP_EQ) unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s" UNIT_COLOR_RESET ", but got `" UNIT_COLOR_FAIL #FormatType "%s`" UNIT_COLOR_RESET, sb, expl, b, nexpl); \
+        else unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s`%s`" UNIT_COLOR_RESET ", but got " UNIT_COLOR_FAIL "`" #FormatType "%s" #FormatType "`" UNIT_COLOR_RESET, sa, expl, sb, a, nexpl, b); \
     } \
 }
 
