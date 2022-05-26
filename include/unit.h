@@ -1,10 +1,10 @@
 /**
- * unit.h - v0.0.2 - Simple header-only testing library for C - https://github.com/eliasku/unit
+ * unit.h - v0.0.3 - Simple header-only testing library for C - https://github.com/eliasku/unit
  *
  * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
  *
  * ```c
- * #define UNIT_IMPL
+ * #define UNIT_MAIN
  * #include "unit.h"
  *
  * suite( you_should_define_the_suite_name_here ) {
@@ -16,22 +16,25 @@
  * }
  * ```
  *
+ * ## Enable Tests
+ *
+ * By default all test code is stripped away, to enable test-code you should pass `-D UNIT_TESTING` and build executable
+ *
+ * ## Default configuration
+ *
+ * In any translation unit you need to `#define UNIT_MAIN` before `#include <unit.h>` to implement the library and
+ * generate default main entry-point to run all tests.
+ *
+ * ## Custom `main()`
+ *
+ * If you need just to implement library, you `#define UNIT_IMPLEMENT` before `include <unit.h>` in any single translation unit
+ *
  **/
-
-/**
- * Enable unit testing
- **/
-// #define UNIT_TESTING
 
 /**
  * Disable colorful output
  */
 // #define UNIT_NO_COLORS
-
-/**
- * Disable default `main` generation
- */
-// #define UNIT_NO_MAIN
 
 /**
  * Disable time measurements
@@ -184,7 +187,11 @@ int unit_main(int argc, char** argv);
 #define UNIT__CONCAT(a, b) a ## b
 #define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
 
+#ifdef UNIT_NO_FILEPOS
+#define UNIT__FILEPOS ""
+#else
 #define UNIT__FILEPOS __FILE__ ":" UNIT__X_STR(__LINE__)
+#endif
 
 #define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
 #define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
@@ -194,22 +201,23 @@ int unit_main(int argc, char** argv);
 
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
-    static struct unit_test UNIT__CONCAT(Var, _data) = \
-    (struct unit_test) { .name = #Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        UNIT__CONCAT(Var, _data).next = unit_tests;    \
-        unit_tests = &UNIT__CONCAT(Var, _data); \
+        static struct unit_test u = (struct unit_test) {                      \
+            .name = Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+        u.next = unit_tests;    \
+        unit_tests = &u; \
     } \
     static void Var(void)
 
-#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), #Name, __VA_ARGS__)
 
 #define UNIT__DECL(IsTest, Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = #Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+    static struct unit_test Var = (struct unit_test){ \
+    .name = Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
@@ -328,20 +336,35 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #endif // UNIT_H
 
 
-#if defined(UNIT_IMPL) && !defined(UNIT_C_IMPLEMENTED) && defined(UNIT_TESTING)
-#define UNIT_C_IMPLEMENTED
+#ifdef UNIT_TESTING
+
+/**
+ * @deprecated use UNIT_IMPLEMENT or UNIT_MAIN options
+ */
+#ifdef UNIT_IMPL
+#define UNIT_MAIN
+#endif // UNIT_IMPL
+
+#ifdef UNIT_MAIN
+#define UNIT_IMPLEMENT
+#endif // UNIT_MAIN
+
+#ifdef UNIT_IMPLEMENT
+#ifndef UNIT__IMPLEMENTED
+#define UNIT__IMPLEMENTED
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef UNIT_NO_MAIN
+#ifdef UNIT_MAIN
 
 int main(int argc, char** argv) {
     srand(time(NULL));
     return unit_main(argc, argv);
 }
 
-#endif // UNIT_NO_MAIN
+#endif // UNIT_MAIN
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
@@ -492,7 +515,7 @@ void unit__on_end(struct unit_test* unit) {
     }
     if (result) {
 #ifndef UNIT_VERBOSE
-        if(unit_depth == 0)
+        if (unit_depth == 0)
 #endif
         {
             UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
@@ -506,9 +529,11 @@ void unit__on_fail(struct unit_test* unit, const char* msg) {
     UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
                 unit__spaces(0), unit_cur->name);
     UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
+#ifndef UNIT_NO_FILEPOS
     UNIT_PRINTF(
             "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
             unit__spaces(1), unit->assert_loc);
+#endif
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {
@@ -702,5 +727,8 @@ int unit_main(int argc, char** argv) {
 }
 #endif
 
+#endif // !UNIT__IMPLEMENTED
 
-#endif // => UNIT_C_IMPLEMENTED
+#endif // UNIT_IMPLEMENT
+
+#endif // UNIT_TESTING

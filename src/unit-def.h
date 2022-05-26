@@ -104,7 +104,11 @@ int unit_main(int argc, char** argv);
 #define UNIT__CONCAT(a, b) a ## b
 #define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
 
+#ifdef UNIT_NO_FILEPOS
+#define UNIT__FILEPOS ""
+#else
 #define UNIT__FILEPOS __FILE__ ":" UNIT__X_STR(__LINE__)
+#endif
 
 #define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
 #define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
@@ -114,22 +118,23 @@ int unit_main(int argc, char** argv);
 
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
-    static struct unit_test UNIT__CONCAT(Var, _data) = \
-    (struct unit_test) { .name = #Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        UNIT__CONCAT(Var, _data).next = unit_tests;    \
-        unit_tests = &UNIT__CONCAT(Var, _data); \
+        static struct unit_test u = (struct unit_test) {                      \
+            .name = Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+        u.next = unit_tests;    \
+        unit_tests = &u; \
     } \
     static void Var(void)
 
-#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), #Name, __VA_ARGS__)
 
 #define UNIT__DECL(IsTest, Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = #Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+    static struct unit_test Var = (struct unit_test){ \
+    .name = Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 

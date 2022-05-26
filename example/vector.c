@@ -42,15 +42,13 @@ void* vector_get(vector* vec, size_t idx) {
     return ptr;
 }
 
-#define UNIT_IMPL
-
+#define UNIT_MAIN
 #include <unit.h>
 
 suite(vector, .allow_fail = true) {
     vector vec;
 
     it("breaks the rules of math (to demonstrate failed tests)") {
-        check(1 == 2, unary op check);
         require_eq(1, 2, binary op fail);
         echo("Oh, noes!");
         // these checks will be skipped after previous fail

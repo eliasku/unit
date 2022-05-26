@@ -148,7 +148,7 @@ void unit__on_end(struct unit_test* unit) {
     }
     if (result) {
 #ifndef UNIT_VERBOSE
-        if(unit_depth == 0)
+        if (unit_depth == 0)
 #endif
         {
             UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
@@ -162,9 +162,11 @@ void unit__on_fail(struct unit_test* unit, const char* msg) {
     UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
                 unit__spaces(0), unit_cur->name);
     UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
+#ifndef UNIT_NO_FILEPOS
     UNIT_PRINTF(
             "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
             unit__spaces(1), unit->assert_loc);
+#endif
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {

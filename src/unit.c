@@ -1,15 +1,18 @@
+#ifndef UNIT__IMPLEMENTED
+#define UNIT__IMPLEMENTED
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef UNIT_NO_MAIN
+#ifdef UNIT_MAIN
 
 int main(int argc, char** argv) {
     srand(time(NULL));
     return unit_main(argc, argv);
 }
 
-#endif // UNIT_NO_MAIN
+#endif // UNIT_MAIN
 
 #include "printer.c"
 
@@ -173,3 +176,5 @@ int unit_main(int argc, char** argv) {
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !UNIT__IMPLEMENTED

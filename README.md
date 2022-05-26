@@ -19,8 +19,8 @@
 Compile executable with `-D UNIT_TESTING` to enable tests
 
 ```c
-#define UNIT_IMPL
-#include "unit.h"
+#define UNIT_MAIN
+#include <unit.h>
 
 suite( you_should_define_the_suite_name_here ) {
   describe( optionally_add_the_subject ) {
@@ -29,8 +29,20 @@ suite( you_should_define_the_suite_name_here ) {
     }
   }
 }
+
 ```
 
 <sub>✓ηỉτ</sub>
 
 ![output](docs/output.png)
+
+### Verbose Mode
+
+```c
+#define UNIT_VERBOSE
+/*^^^^^^^^^^^^^^^^*/
+#define UNIT_MAIN
+#include <unit.h>
+```
+
+![verbose](docs/verbose.png)

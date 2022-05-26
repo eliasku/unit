@@ -1,27 +1,25 @@
-//#define UNIT_VERBOSE
-#define UNIT_IMPL
-
+#define UNIT_MAIN
 #include <unit.h>
 
 suite(unit) {
     echo("start");
 
-    describe("accept test") {
+    describe((UNIT_TEST, it, test)) {
         it("without body");
         it("in one-line") check_gt(1, 0), echo("wow");
         it("could be skipped", .skip=1) require(0, skipped);
     }
 
-    describe("accept case") {
-        describe("without body");
+    describe((UNIT_DESCRIBE, describe)) {
+        describe();
         // this is not possible because `test` declares static variable before scope
         //describe("in one-line") it("p");
 
-        describe(with skip flag, .skip=1) {
+        describe(unit_cur->skip, .skip=1) {
             it("which skip any test inside") require(0, SKIP);
         }
 
-        describe(with allow_fail flag, .allow_fail=1) {
+        describe(unit_cur->allow_fail, .allow_fail=1) {
             it("which pass in case of tests failure") {
                 require_eq(2, 2);
                 echo("Next require will fail");
@@ -34,10 +32,12 @@ suite(unit) {
         }
     }
 
-    it("contains root test with skip directive in the middle") {
-        require(1, OK);
-        skip();
-        require(0, SKIP);
+    describe(skip) {
+        it("start skipping checks in the middle") {
+            require(1, OK);
+            skip();
+            require(0, SKIP);
+        }
     }
 }
 
