@@ -5,8 +5,8 @@
   "scripts": {
     "release": "changeset publish",
     "version": "changeset version && yarn && git add yarn.lock",
-    "build": "node src/amalgamate.js",
-    "test": "./test.sh"
+    "build": "node scripts/amalgamate.js",
+    "test": "node scripts/test.js"
   },
   "files": [
     "CMakeLists.txt",

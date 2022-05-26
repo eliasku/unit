@@ -47,6 +47,32 @@ const char* unit__op_nexpl[] = {
         " >= ",
 };
 
+bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
+    unit_cur->assert_comment = comment;
+    unit_cur->assert_desc = desc;
+    unit_cur->assert_level = level;
+    unit_cur->assert_loc = loc;
+    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
+        // пропустить проверку
+        unit_printer.assertion(unit_cur, UNIT_STATUS_SKIPPED);
+        return false;
+    }
+    return true;
+}
+
+static void unit__fail_impl(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const char* msg = unit__vbprintf(fmt, args);
+    va_end(args);
+
+    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
+        unit_cur->status = UNIT_STATUS_FAILED;
+        unit_cur->state |= unit_cur->assert_level;
+    }
+    unit_printer.fail(unit_cur, msg);
+}
+
 #define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
 void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb) { \
     bool pass = false; \
@@ -60,7 +86,7 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
     } \
-    unit__print_assert(pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    unit_printer.assertion(unit_cur, pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
@@ -70,37 +96,6 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
 }
 
 UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
-
-void unit__fail_impl(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    const char* msg = unit__vbprintf(fmt, args);
-    va_end(args);
-
-    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
-        unit_cur->status = UNIT_STATUS_FAILED;
-        unit_cur->state |= unit_cur->assert_level;
-    }
-    unit_printer.fail(unit_cur, msg);
-}
-
-void unit__print_assert(int status) {
-    unit_printer.assertion(unit_cur, status);
-}
-
-bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
-    unit_cur->assert_comment = comment;
-    unit_cur->assert_desc = desc;
-    unit_cur->assert_level = level;
-    unit_cur->assert_loc = loc;
-    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
-        // пропустить проверку
-        unit__print_assert(UNIT_STATUS_SKIPPED);
-        return false;
-    }
-    return true;
-}
-
 
 /** Время **/
 

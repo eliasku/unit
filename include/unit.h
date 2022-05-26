@@ -193,34 +193,23 @@ int unit_main(int argc, char** argv);
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
 #define UNIT__SUITE(Var, Name, ...) \
-    void UNIT__CONCAT(Var, _main) (void); \
+    static void Var(void); \
     static struct unit_test UNIT__CONCAT(Var, _data) = \
-    (struct unit_test) { .name = #Name, .src = UNIT__FILEPOS, .fn = &UNIT__CONCAT(Var, _main), __VA_ARGS__ }; \
-    __attribute__((constructor)) void UNIT__CONCAT(Var, _ctor)(void) { \
+    (struct unit_test) { .name = #Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+    __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
         UNIT__CONCAT(Var, _data).next = unit_tests;    \
         unit_tests = &UNIT__CONCAT(Var, _data); \
     } \
-    void UNIT__CONCAT(Var, _main) (void)
+    static void Var(void)
 
-#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(UNIT__CONCAT(unit__, Name), __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT__DESCRIBE(Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+#define UNIT__DECL(IsTest, Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){.name = #Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-
-#define UNIT__TEST(Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = Name, .kind = 1, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-    UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
-
-#define UNIT_TEST(Name, ...) UNIT__TEST(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-
-/** Assert functions **/
-
-void unit__fail_impl(const char* fmt, ...);
-
-void unit__print_assert(int status);
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
@@ -586,6 +575,32 @@ const char* unit__op_nexpl[] = {
         " >= ",
 };
 
+bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
+    unit_cur->assert_comment = comment;
+    unit_cur->assert_desc = desc;
+    unit_cur->assert_level = level;
+    unit_cur->assert_loc = loc;
+    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
+        // пропустить проверку
+        unit_printer.assertion(unit_cur, UNIT_STATUS_SKIPPED);
+        return false;
+    }
+    return true;
+}
+
+static void unit__fail_impl(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const char* msg = unit__vbprintf(fmt, args);
+    va_end(args);
+
+    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
+        unit_cur->status = UNIT_STATUS_FAILED;
+        unit_cur->state |= unit_cur->assert_level;
+    }
+    unit_printer.fail(unit_cur, msg);
+}
+
 #define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
 void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb) { \
     bool pass = false; \
@@ -599,7 +614,7 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
     } \
-    unit__print_assert(pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    unit_printer.assertion(unit_cur, pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
@@ -609,37 +624,6 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
 }
 
 UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
-
-void unit__fail_impl(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    const char* msg = unit__vbprintf(fmt, args);
-    va_end(args);
-
-    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
-        unit_cur->status = UNIT_STATUS_FAILED;
-        unit_cur->state |= unit_cur->assert_level;
-    }
-    unit_printer.fail(unit_cur, msg);
-}
-
-void unit__print_assert(int status) {
-    unit_printer.assertion(unit_cur, status);
-}
-
-bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
-    unit_cur->assert_comment = comment;
-    unit_cur->assert_desc = desc;
-    unit_cur->assert_level = level;
-    unit_cur->assert_loc = loc;
-    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
-        // пропустить проверку
-        unit__print_assert(UNIT_STATUS_SKIPPED);
-        return false;
-    }
-    return true;
-}
-
 
 /** Время **/
 

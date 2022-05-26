@@ -41,11 +41,11 @@ suite(unit) {
     }
 }
 
-suite(unit_suite_skip, .skip=1) {
+suite(unit, .skip=1) {
     it("should skip the whole suite");
 }
 
-suite(unit_suite_fail, .allow_fail=1) {
+suite(unit, .allow_fail=1) {
     it("should pass suite in case of failure") {
         require(0);
     }
