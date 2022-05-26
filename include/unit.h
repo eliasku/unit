@@ -1,9 +1,8 @@
 /**
  * unit.h - v0.0.2 - Simple header-only testing library for C - https://github.com/eliasku/unit
-**/
-/**
+ *
  * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
- * 
+ *
  * ```c
  * #define UNIT_IMPL
  * #include "unit.h"
@@ -16,19 +15,33 @@
  *   }
  * }
  * ```
-**/
+ *
+ **/
 
-//#define UNIT_TESTING
+/**
+ * Enable unit testing
+ **/
+// #define UNIT_TESTING
 
-// отключить вывод в цвете
-//#define UNIT_NO_COLORS
+/**
+ * Disable colorful output
+ */
+// #define UNIT_NO_COLORS
 
-// отключить точку входа по-умолчанию
-//#define UNIT_NO_MAIN
+/**
+ * Disable default `main` generation
+ */
+// #define UNIT_NO_MAIN
 
-// отключить измерение времени
-//#define UNIT_NO_TIME
+/**
+ * Disable time measurements
+ */
+// #define UNIT_NO_TIME
 
+/**
+ * Add run details to the output (echo, assertions)
+ */
+// #define UNIT_VERBOSE
 #ifndef UNIT_H
 #define UNIT_H
 
@@ -38,7 +51,7 @@
 #define UNIT__CONCAT(a, b) UNIT__CONCAT_(a, b)
 #define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__CONCAT(Name, __COUNTER__)(void)
 #define UNIT_DESCRIBE(Name, ...) while(0)
-#define UNIT_IT(Description, ...) while(0)
+#define UNIT_TEST(Description, ...) while(0)
 
 #define UNIT_ECHO(...)
 
@@ -180,34 +193,23 @@ int unit_main(int argc, char** argv);
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
 #define UNIT__SUITE(Var, Name, ...) \
-    void UNIT__CONCAT(Var, _main) (void); \
+    static void Var(void); \
     static struct unit_test UNIT__CONCAT(Var, _data) = \
-    (struct unit_test) { .name = #Name, .src = UNIT__FILEPOS, .fn = &UNIT__CONCAT(Var, _main), __VA_ARGS__ }; \
-    __attribute__((constructor)) void UNIT__CONCAT(Var, _ctor)(void) { \
+    (struct unit_test) { .name = #Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+    __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
         UNIT__CONCAT(Var, _data).next = unit_tests;    \
         unit_tests = &UNIT__CONCAT(Var, _data); \
     } \
-    void UNIT__CONCAT(Var, _main) (void)
+    static void Var(void)
 
-#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(UNIT__CONCAT(unit__, Name), __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), Name, __VA_ARGS__)
 
-#define UNIT__DESCRIBE(Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = #Name, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+#define UNIT__DECL(IsTest, Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){.name = #Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DESCRIBE(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-
-#define UNIT__TEST(Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){.name = Name, .kind = 1, .src = UNIT__FILEPOS, __VA_ARGS__}; \
-    UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
-
-#define UNIT_TEST(Name, ...) UNIT__TEST(UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
-
-/** Assert functions **/
-
-void unit__fail_impl(const char* fmt, ...);
-
-void unit__print_assert(int status);
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
@@ -340,22 +342,24 @@ int main(int argc, char** argv) {
 }
 
 #endif // UNIT_NO_MAIN
-
-
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
 #define UNIT_COLOR_RESET "\033[0m"
 #define UNIT_COLOR_BOLD "\033[1m"
+#define UNIT_COLOR_DIM "\033[2m"
+#define UNIT_COLOR_UNDERLINE "\033[4m"
 #define UNIT_COLOR_WHITE "\033[97m"
 #define UNIT_COLOR_MAYBE "\033[35m"
 #define UNIT_COLOR_COMMENT "\033[36m"
-#define UNIT_COLOR_SUCCESS "\033[92m"
+#define UNIT_COLOR_SUCCESS "\033[32m"
 #define UNIT_COLOR_FAIL "\033[91m"
 #define UNIT_COLOR_DESC "\033[33m"
 #else
 #define UNIT_COLOR_RESET
 #define UNIT_COLOR_BOLD
+#define UNIT_COLOR_DIM
+#define UNIT_COLOR_UNDERLINE
 #define UNIT_COLOR_WHITE
 #define UNIT_COLOR_MAYBE
 #define UNIT_COLOR_COMMENT
@@ -364,20 +368,43 @@ int main(int argc, char** argv) {
 #define UNIT_COLOR_DESC
 #endif
 
+/**
+ * Alternative icons:
+ * message icons: "💬 ", "# ", "ℹ ", " ⃫ "
+ * skip icons: "Ⅱ "
+ */
+#define UNIT__ICON_OK       UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET
+#define UNIT__ICON_FAIL     UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET
+#define UNIT__ICON_ASSERT   UNIT_COLOR_BOLD UNIT_COLOR_FAIL "● " UNIT_COLOR_RESET
+#define UNIT__ICON_RUN      UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET
+#define UNIT__ICON_SKIP     UNIT_COLOR_BOLD UNIT_COLOR_DIM "∅ " UNIT_COLOR_RESET
+#define UNIT__ICON_MSG      UNIT_COLOR_BOLD UNIT_COLOR_COMMENT "» " UNIT_COLOR_RESET
+//#define UNIT__ICON_LI       "◆ "
+#define UNIT__ICON_LI
+
+//#define UNIT__TXT_OK        UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "OK: " UNIT_COLOR_RESET
+//#define UNIT__TXT_FAIL      UNIT_COLOR_BOLD UNIT_COLOR_FAIL "Fail: " UNIT_COLOR_RESET
+//#define UNIT__TXT_SKIP      UNIT_COLOR_BOLD "Skip: " UNIT_COLOR_RESET
+
+#define UNIT__TXT_OK
+#define UNIT__TXT_FAIL
+#define UNIT__TXT_SKIP
+
 // $prefix 0 Status: $message
-#define UNIT_MSG_TESTING "\n%s" "◆ " UNIT_COLOR_BOLD UNIT_COLOR_WHITE "Testing %s" UNIT_COLOR_RESET ":\n"
-#define UNIT_MSG_RUN "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s" UNIT_COLOR_RESET "\n"
-#define UNIT_MSG_SUCCESS "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Success: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_SKIPPED "%s" UNIT_COLOR_BOLD "Ⅱ " UNIT_COLOR_RESET "Skipped: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
-#define UNIT_MSG_FAILED "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET UNIT_COLOR_BOLD UNIT_COLOR_DESC "%s" UNIT_COLOR_RESET " (%0.2lf ms)\n"
+#define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET ":\n"
+#define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_OK         "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_SKIP       "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_FAIL       "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
+#define UNIT_MSG_ECHO       "%s" UNIT__ICON_MSG UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
 
-#define UNIT_MSG_TEST_PASSED "%s" UNIT_COLOR_BOLD UNIT_COLOR_WHITE "%s: Passed %d/%d tests" UNIT_COLOR_RESET ". (%0.2lf ms)\n"
-
-//#define UNIT_MSG_ECHO "💬"
-//#define UNIT_MSG_ECHO "#"
-#define UNIT_MSG_ECHO "%s" UNIT_COLOR_BOLD UNIT_COLOR_COMMENT " ⃫ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
+#define UNIT_MSG_RESULT_SKIP "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
+#define UNIT_MSG_RESULT_FAIL "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
+#define UNIT_MSG_RESULT_OK  "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
 
 #define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
+
+#define UNIT__LOG_PREFIX "` "
 
 // region reporting
 
@@ -400,28 +427,53 @@ const char* unit__spaces(int delta) {
     return unit_spaces[i];
 }
 
+const char* unit__log_prefix(int delta) {
+    return unit__spaces(delta - 1);
+}
+
 const char* unit__status_msg(int status) {
-    const char* dict[3] = {UNIT_MSG_SUCCESS,
-                           UNIT_MSG_SKIPPED,
-                           UNIT_MSG_FAILED};
+    const char* dict[3] = {UNIT_MSG_OK,
+                           UNIT_MSG_SKIP,
+                           UNIT_MSG_FAIL};
     return dict[status];
+}
+
+void unit__end_line(double elapsed_time) {
+    if (elapsed_time >= 0.01) {
+        UNIT_PRINTF(UNIT_COLOR_DIM " (%0.2lf ms)" UNIT_COLOR_RESET, elapsed_time);
+    }
+    putchar('\n');
 }
 
 static bool unit_prev_print_results = false;
 
 void unit__on_begin(struct unit_test* unit) {
-    const char* fmt = unit->kind == 0 ? UNIT_MSG_TESTING : UNIT_MSG_RUN;
-    UNIT_PRINTF(fmt, unit__spaces(0), unit->name);
+    if (unit->skip) {
+        UNIT_PRINTF(UNIT_MSG_SKIP, unit__spaces(0), unit->name);
+        unit__end_line(0.0);
+    } else {
+        if (unit->kind == 0) {
+            putchar('\n');
+            UNIT_PRINTF(UNIT_MSG_CASE, unit__spaces(0), unit->name);
+        } else {
+#ifdef UNIT_VERBOSE
+            UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), unit->name);
+#endif
+        }
+    }
+
     ++unit_depth;
     unit_prev_print_results = false;
 }
 
 void unit__on_end(struct unit_test* unit) {
     if (unit->kind == 1) {
-        UNIT_PRINTF(unit__status_msg(unit->status),
-                    unit__spaces(0), unit->name,
-                    unit->elapsed_time);
         --unit_depth;
+        if (!unit->skip) {
+            UNIT_PRINTF(unit__status_msg(unit->status),
+                        unit__spaces(0), unit->name);
+            unit__end_line(unit->elapsed_time);
+        }
         return;
     }
 
@@ -430,39 +482,52 @@ void unit__on_end(struct unit_test* unit) {
         putchar('\n');
     }
     --unit_depth;
+    const char* result = 0;
     if (unit->skip) {
-        UNIT_PRINTF(UNIT_MSG_SKIPPED, unit__spaces(0), unit->name, unit->elapsed_time);
+
+    } else if (unit->passed < unit->total) {
+        result = UNIT_MSG_RESULT_FAIL;
     } else {
-        UNIT_PRINTF(UNIT_MSG_TEST_PASSED, unit__spaces(0), unit->name, unit->passed, unit->total, unit->elapsed_time);
+        result = UNIT_MSG_RESULT_OK;
     }
-    unit_prev_print_results = true;
+    if (result) {
+#ifndef UNIT_VERBOSE
+        if(unit_depth == 0)
+#endif
+        {
+            UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
+            unit__end_line(unit->elapsed_time);
+            unit_prev_print_results = true;
+        }
+    }
 }
 
 void unit__on_fail(struct unit_test* unit, const char* msg) {
-    UNIT_PRINTF("%s%s\n"
-                "%sin %s (%s)\n",
-                unit__spaces(1), msg,
-                unit__spaces(1), unit->assert_loc, unit_cur->name);
+    UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
+                unit__spaces(0), unit_cur->name);
+    UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
+    UNIT_PRINTF(
+            "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
+            unit__spaces(1), unit->assert_loc);
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {
-    const char* fmt = NULL;
-    if (status == UNIT_STATUS_SKIPPED) {
-        fmt = "%sⅡ Skip: %s\n";
-    } else if (status == UNIT_STATUS_SUCCESS) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET UNIT_COLOR_SUCCESS "Pass: " UNIT_COLOR_RESET "%s\n";
-    } else if (status == UNIT_STATUS_FAILED) {
-        fmt = "%s" UNIT_COLOR_BOLD UNIT_COLOR_FAIL "✕ " UNIT_COLOR_RESET UNIT_COLOR_FAIL "Failed: " UNIT_COLOR_RESET "%s\n";
-    }
-    if (fmt) {
-        const char* cm = unit->assert_comment;
-        const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
-        UNIT_PRINTF(fmt, unit__spaces(0), desc);
-    }
+#ifdef UNIT_VERBOSE
+    static const char* fmts[3] = {
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n",
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n",
+            UNIT__LOG_PREFIX "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n"
+    };
+    const char* cm = unit->assert_comment;
+    const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
+    UNIT_PRINTF(fmts[status], unit__log_prefix(0), desc);
+#endif
 }
 
 void unit__on_echo(const char* msg) {
-    UNIT_PRINTF(UNIT_MSG_ECHO, unit__spaces(0), msg);
+#ifdef UNIT_VERBOSE
+    UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_ECHO, unit__log_prefix(0), msg);
+#endif
 }
 
 // endregion reporting
@@ -510,6 +575,32 @@ const char* unit__op_nexpl[] = {
         " >= ",
 };
 
+bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
+    unit_cur->assert_comment = comment;
+    unit_cur->assert_desc = desc;
+    unit_cur->assert_level = level;
+    unit_cur->assert_loc = loc;
+    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
+        // пропустить проверку
+        unit_printer.assertion(unit_cur, UNIT_STATUS_SKIPPED);
+        return false;
+    }
+    return true;
+}
+
+static void unit__fail_impl(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const char* msg = unit__vbprintf(fmt, args);
+    va_end(args);
+
+    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
+        unit_cur->status = UNIT_STATUS_FAILED;
+        unit_cur->state |= unit_cur->assert_level;
+    }
+    unit_printer.fail(unit_cur, msg);
+}
+
 #define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
 void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* sa, const char* sb) { \
     bool pass = false; \
@@ -523,47 +614,16 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
     } \
-    unit__print_assert(pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    unit_printer.assertion(unit_cur, pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
-        if (op < UNIT__OP_EQ) unit__fail_impl("Expected `%s`%s, but got `" #FormatType "%s`", sb, expl, b, nexpl); \
-        else unit__fail_impl("Expected `%s`%s`%s`, but got `" #FormatType "%s" #FormatType "`", sa, expl, sb, a, nexpl, b); \
+        if (op < UNIT__OP_EQ) unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s" UNIT_COLOR_RESET ", but got `" UNIT_COLOR_FAIL #FormatType "%s`" UNIT_COLOR_RESET, sb, expl, b, nexpl); \
+        else unit__fail_impl("Expected " UNIT_COLOR_SUCCESS "`%s`%s`%s`" UNIT_COLOR_RESET ", but got " UNIT_COLOR_FAIL "`" #FormatType "%s" #FormatType "`" UNIT_COLOR_RESET, sa, expl, sb, a, nexpl, b); \
     } \
 }
 
 UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
-
-void unit__fail_impl(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    const char* msg = unit__vbprintf(fmt, args);
-    va_end(args);
-
-    if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
-        unit_cur->status = UNIT_STATUS_FAILED;
-        unit_cur->state |= unit_cur->assert_level;
-    }
-    unit_printer.fail(unit_cur, msg);
-}
-
-void unit__print_assert(int status) {
-    unit_printer.assertion(unit_cur, status);
-}
-
-bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
-    unit_cur->assert_comment = comment;
-    unit_cur->assert_desc = desc;
-    unit_cur->assert_level = level;
-    unit_cur->assert_loc = loc;
-    if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
-        // пропустить проверку
-        unit__print_assert(UNIT_STATUS_SKIPPED);
-        return false;
-    }
-    return true;
-}
-
 
 /** Время **/
 

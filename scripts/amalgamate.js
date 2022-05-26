@@ -20,6 +20,6 @@ function amalgamate(input, output) {
 }
 
 amalgamate(
-    path.join(__dirname, "all.c"),
+    path.resolve(__dirname, "../src/unit.h"),
     path.resolve(__dirname, "../include/unit.h")
 );

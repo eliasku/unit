@@ -2,7 +2,7 @@
 #include <unit.h>
 #include <stdlib.h>
 
-suite(asserts) {
+suite(unit) {
     static int a = 5;
 
     it("evaluated only once!") {
