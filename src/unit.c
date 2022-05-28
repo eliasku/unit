@@ -19,6 +19,22 @@ int main(int argc, char** argv) {
 struct unit_test* unit_tests = NULL;
 struct unit_test* unit_cur = NULL;
 
+// find or create root unit for .c file
+struct unit_test* unit__file(struct unit_test* new_unit, const char* filepath) {
+    struct unit_test* t = unit_tests;
+    while (t) {
+        if (t->src == filepath) {
+            return t;
+        }
+        t = t->next;
+    }
+    const char* filename = strrchr(filepath, '/');
+    new_unit->name = filename ? (filename + 1) : filepath;
+    new_unit->next = unit_tests;
+    unit_tests = new_unit;
+    return new_unit;
+}
+
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
     static char s_buffer[4096];
@@ -162,10 +178,16 @@ int unit_main(int argc, char** argv) {
     (void) (argc);
     (void) (argv);
 
+    unit_printer.setup();
+    
     int failed = 0;
-    for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
-        UNIT_TRY_SCOPE(unit__begin(unit), unit__end(unit)) unit->fn();
-        failed += (unit->passed < unit->total) ? 1 : 0;
+    for (struct unit_test* file = unit_tests; file; file = file->next) {
+        UNIT_TRY_SCOPE(unit__begin(file), unit__end(file)) {
+            for (struct unit_test* suite = file->children; suite; suite = suite->next) {
+                UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+            }
+        }
+        failed += (file->passed < file->total) ? 1 : 0;
     }
 
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;

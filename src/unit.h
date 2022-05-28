@@ -50,6 +50,8 @@
 
 #ifdef UNIT_TESTING
 
+#define UNIT_VERSION "${VERSION}"
+
 /**
  * @deprecated use UNIT_IMPLEMENT or UNIT_MAIN options
  */
@@ -62,7 +64,9 @@
 #endif // UNIT_MAIN
 
 #ifdef UNIT_IMPLEMENT
+
 #include "unit.c"
+
 #endif // UNIT_IMPLEMENT
 
 #endif // UNIT_TESTING

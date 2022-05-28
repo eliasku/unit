@@ -55,6 +55,7 @@ struct unit_test {
     void (* fn)(void);
 
     struct unit_test* next;
+    struct unit_test* children;
     struct unit_test* parent;
 
     int total;
@@ -78,6 +79,8 @@ extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
 struct unit_printer {
+    void (* setup)(void);
+
     void (* begin)(struct unit_test* unit);
 
     void (* end)(struct unit_test* unit);
@@ -116,13 +119,18 @@ int unit_main(int argc, char** argv);
 #define UNIT__TRY_BODY(begin, end, Var) for (int Var = (begin) ? 0 : (end, 1); !Var; ++Var, end)
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
+// find or create root unit for .c file
+struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
+
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test u = (struct unit_test) {                      \
-            .name = Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
-        u.next = unit_tests;    \
-        unit_tests = &u; \
+        static struct unit_test tmp = (struct unit_test) {.src = __FILE__}; \
+        struct unit_test* file = unit__file(&tmp, __FILE__); \
+        static struct unit_test u = (struct unit_test) {.name = Name, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+        u.parent = file; \
+        u.next = file->children; \
+        file->children = &u; \
     } \
     static void Var(void)
 

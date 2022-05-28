@@ -3,9 +3,11 @@ project(unit-test C CXX)
 
 add_executable(${PROJECT_NAME}
         main.c
-        fun.c
-        test_asserts.c
         main.cpp
+        asserts.c
+        fun.c
+        expect.c
+        expect_that.c
         )
 target_compile_definitions(${PROJECT_NAME} PUBLIC UNIT_TESTING)
 target_link_libraries(${PROJECT_NAME} PUBLIC unit)

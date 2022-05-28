@@ -138,6 +138,7 @@ struct unit_test {
     void (* fn)(void);
 
     struct unit_test* next;
+    struct unit_test* children;
     struct unit_test* parent;
 
     int total;
@@ -161,6 +162,8 @@ extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
 struct unit_printer {
+    void (* setup)(void);
+
     void (* begin)(struct unit_test* unit);
 
     void (* end)(struct unit_test* unit);
@@ -199,13 +202,18 @@ int unit_main(int argc, char** argv);
 #define UNIT__TRY_BODY(begin, end, Var) for (int Var = (begin) ? 0 : (end, 1); !Var; ++Var, end)
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
+// find or create root unit for .c file
+struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
+
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test u = (struct unit_test) {                      \
-            .name = Name, .kind = 0, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
-        u.next = unit_tests;    \
-        unit_tests = &u; \
+        static struct unit_test tmp = (struct unit_test) {.src = __FILE__}; \
+        struct unit_test* file = unit__file(&tmp, __FILE__); \
+        static struct unit_test u = (struct unit_test) {.name = Name, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+        u.parent = file; \
+        u.next = file->children; \
+        file->children = &u; \
     } \
     static void Var(void)
 
@@ -338,6 +346,8 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #ifdef UNIT_TESTING
 
+#define UNIT_VERSION "0.0.3"
+
 /**
  * @deprecated use UNIT_IMPLEMENT or UNIT_MAIN options
  */
@@ -372,23 +382,29 @@ int main(int argc, char** argv) {
 #define UNIT_COLOR_BOLD "\033[1m"
 #define UNIT_COLOR_DIM "\033[2m"
 #define UNIT_COLOR_UNDERLINE "\033[4m"
-#define UNIT_COLOR_WHITE "\033[97m"
 #define UNIT_COLOR_MAYBE "\033[35m"
 #define UNIT_COLOR_COMMENT "\033[36m"
 #define UNIT_COLOR_SUCCESS "\033[32m"
-#define UNIT_COLOR_FAIL "\033[91m"
+#define UNIT_COLOR_FAIL "\033[31m"
 #define UNIT_COLOR_DESC "\033[33m"
+#define UNIT_COLOR_LABEL_PASS UNIT_COLOR_BOLD "\033[30;42m"
+#define UNIT_COLOR_LABEL_FAIL UNIT_COLOR_BOLD "\033[30;41m"
+#define UNIT_COLOR_LABEL_SKIP UNIT_COLOR_BOLD "\033[30;47m"
+#define UNIT_COLOR_LABEL_RUNS UNIT_COLOR_BOLD "\033[30;44m"
 #else
 #define UNIT_COLOR_RESET
 #define UNIT_COLOR_BOLD
 #define UNIT_COLOR_DIM
 #define UNIT_COLOR_UNDERLINE
-#define UNIT_COLOR_WHITE
 #define UNIT_COLOR_MAYBE
 #define UNIT_COLOR_COMMENT
 #define UNIT_COLOR_SUCCESS
 #define UNIT_COLOR_FAIL
 #define UNIT_COLOR_DESC
+#define UNIT_COLOR_LABEL_PASS
+#define UNIT_COLOR_LABEL_FAIL
+#define UNIT_COLOR_LABEL_SKIP
+#define UNIT_COLOR_LABEL_RUNS
 #endif
 
 /**
@@ -414,22 +430,26 @@ int main(int argc, char** argv) {
 #define UNIT__TXT_SKIP
 
 // $prefix 0 Status: $message
-#define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET ":\n"
+#define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n"
 #define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN "%s" UNIT_COLOR_RESET "\n"
 #define UNIT_MSG_OK         "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
 #define UNIT_MSG_SKIP       "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
 #define UNIT_MSG_FAIL       "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
 #define UNIT_MSG_ECHO       "%s" UNIT__ICON_MSG UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
 
-#define UNIT_MSG_RESULT_SKIP "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
-#define UNIT_MSG_RESULT_FAIL "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
-#define UNIT_MSG_RESULT_OK  "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET "."
+#define UNIT_MSG_RESULT_SKIP "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
+#define UNIT_MSG_RESULT_FAIL "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
+#define UNIT_MSG_RESULT_OK  "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
 
-#define UNIT_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
+#define UNIT_PRINTF(fmt, ...) fprintf(stdout, fmt, __VA_ARGS__)
+#define UNIT_PUTS(str) fputs(str, stdout)
 
 #define UNIT__LOG_PREFIX "` "
 
 // region reporting
+
+static char unit__fails_mem[4096];
+static FILE* unit__fails = 0;
 
 const char* unit_spaces[8] = {
         "",
@@ -468,25 +488,34 @@ void unit__end_line(double elapsed_time) {
     putchar('\n');
 }
 
-static bool unit_prev_print_results = false;
+static const char* beautify_name(const char* name) {
+    return UNIT__IS_NOT_EMPTY_STR(_, name) ? name : "(anonymous)";
+}
 
 void unit__on_begin(struct unit_test* unit) {
     if (unit->skip) {
-        UNIT_PRINTF(UNIT_MSG_SKIP, unit__spaces(0), unit->name);
+        if (!unit->parent) {
+            UNIT_PRINTF(UNIT_COLOR_LABEL_SKIP " SKIP " UNIT_COLOR_RESET " %s", beautify_name(unit->name));
+        } else {
+            UNIT_PRINTF(UNIT_MSG_SKIP, unit__spaces(0), beautify_name(unit->name));
+        }
         unit__end_line(0.0);
     } else {
         if (unit->kind == 0) {
-            putchar('\n');
-            UNIT_PRINTF(UNIT_MSG_CASE, unit__spaces(0), unit->name);
+            UNIT_PUTS(unit__spaces(0));
+            if (!unit->parent) {
+                UNIT_PRINTF(UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n", beautify_name(unit->name));
+            } else {
+                UNIT_PRINTF("%s\n", beautify_name(unit->name));
+            }
         } else {
 #ifdef UNIT_VERBOSE
-            UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), unit->name);
+            UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), beautify_name(unit->name));
 #endif
         }
     }
 
     ++unit_depth;
-    unit_prev_print_results = false;
 }
 
 void unit__on_end(struct unit_test* unit) {
@@ -494,16 +523,12 @@ void unit__on_end(struct unit_test* unit) {
         --unit_depth;
         if (!unit->skip) {
             UNIT_PRINTF(unit__status_msg(unit->status),
-                        unit__spaces(0), unit->name);
+                        unit__spaces(0), beautify_name(unit->name));
             unit__end_line(unit->elapsed_time);
         }
         return;
     }
 
-    // добавляем дополнительный отступ между блоками
-    if (unit_prev_print_results) {
-        putchar('\n');
-    }
     --unit_depth;
     const char* result = 0;
     if (unit->skip) {
@@ -514,26 +539,66 @@ void unit__on_end(struct unit_test* unit) {
         result = UNIT_MSG_RESULT_OK;
     }
     if (result) {
-#ifndef UNIT_VERBOSE
-        if (unit_depth == 0)
+#ifdef UNIT_VERBOSE
+        UNIT_PRINTF(result, unit__spaces(0), beautify_name(unit->name), unit->passed, unit->total);
+        unit__end_line(unit->elapsed_time);
 #endif
-        {
-            UNIT_PRINTF(result, unit__spaces(0), unit->name, unit->passed, unit->total);
+        if (!unit->parent) {
+            // добавляем дополнительный отступ между блоками
+            putchar('\n');
+
+            if (unit__fails) {
+                fpos_t pos = ftell(unit__fails);
+                unit__fails_mem[pos] = 0;
+                fclose(unit__fails);
+                unit__fails = 0;
+                UNIT_PUTS(unit__fails_mem);
+            }
+
+            if (unit->passed < unit->total) {
+                UNIT_PRINTF(UNIT_COLOR_LABEL_FAIL " FAIL " UNIT_COLOR_RESET " %s: passed %d/%d tests",
+                            beautify_name(unit->name), unit->passed, unit->total);
+            } else {
+                UNIT_PRINTF(UNIT_COLOR_LABEL_PASS " PASS " UNIT_COLOR_RESET " %s: passed %d/%d tests",
+                            beautify_name(unit->name), unit->passed, unit->total);
+            }
             unit__end_line(unit->elapsed_time);
-            unit_prev_print_results = true;
+            putchar('\n');
         }
     }
 }
 
+static void unit__breadcrumbs(struct unit_test* test) {
+    if (test->parent) {
+        unit__breadcrumbs(test->parent);
+
+        // skip file's root node
+        if (test->parent->parent) {
+            fputs(" → ", unit__fails);
+        }
+        fputs(beautify_name(test->name), unit__fails);
+    }
+}
+
 void unit__on_fail(struct unit_test* unit, const char* msg) {
-    UNIT_PRINTF("%s" UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL "%s" UNIT_COLOR_RESET "\n\n",
-                unit__spaces(0), unit_cur->name);
-    UNIT_PRINTF("%s" "%s" "\n", unit__spaces(1), msg);
+    const int indent = 1 - unit_depth;
+    if (unit__fails == 0) {
+        unit__fails = fmemopen(unit__fails_mem, sizeof unit__fails_mem, "w");
+    }
+    fputs(unit__spaces(indent), unit__fails);
+    fputs(UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL, unit__fails);
+    unit__breadcrumbs(unit_cur);
+    fputs(UNIT_COLOR_RESET "\n\n", unit__fails);
+
+    fputs(unit__spaces(indent + 1), unit__fails);
+    fputs(msg, unit__fails);
+    fputs("\n", unit__fails);
 #ifndef UNIT_NO_FILEPOS
-    UNIT_PRINTF(
-            "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n\n",
-            unit__spaces(1), unit->assert_loc);
+    fprintf(unit__fails,
+            "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n",
+            unit__spaces(indent + 1), unit->assert_loc);
 #endif
+    fputc('\n', unit__fails);
 }
 
 void unit__on_assert(struct unit_test* unit, int status) {
@@ -557,7 +622,12 @@ void unit__on_echo(const char* msg) {
 
 // endregion reporting
 
+static void printer_setup(void) {
+    UNIT_PUTS("\n" UNIT_COLOR_LABEL_PASS " ✓ηỉτ " UNIT_COLOR_LABEL_FAIL " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
+}
+
 struct unit_printer unit_printer = (struct unit_printer) {
+        .setup = printer_setup,
         .begin = unit__on_begin,
         .end = unit__on_end,
         .fail = unit__on_fail,
@@ -568,6 +638,22 @@ struct unit_printer unit_printer = (struct unit_printer) {
 
 struct unit_test* unit_tests = NULL;
 struct unit_test* unit_cur = NULL;
+
+// find or create root unit for .c file
+struct unit_test* unit__file(struct unit_test* new_unit, const char* filepath) {
+    struct unit_test* t = unit_tests;
+    while (t) {
+        if (t->src == filepath) {
+            return t;
+        }
+        t = t->next;
+    }
+    const char* filename = strrchr(filepath, '/');
+    new_unit->name = filename ? (filename + 1) : filepath;
+    new_unit->next = unit_tests;
+    unit_tests = new_unit;
+    return new_unit;
+}
 
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
@@ -712,10 +798,16 @@ int unit_main(int argc, char** argv) {
     (void) (argc);
     (void) (argv);
 
+    unit_printer.setup();
+    
     int failed = 0;
-    for (struct unit_test* unit = unit_tests; unit; unit = unit->next) {
-        UNIT_TRY_SCOPE(unit__begin(unit), unit__end(unit)) unit->fn();
-        failed += (unit->passed < unit->total) ? 1 : 0;
+    for (struct unit_test* file = unit_tests; file; file = file->next) {
+        UNIT_TRY_SCOPE(unit__begin(file), unit__end(file)) {
+            for (struct unit_test* suite = file->children; suite; suite = suite->next) {
+                UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+            }
+        }
+        failed += (file->passed < file->total) ? 1 : 0;
     }
 
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;
@@ -728,6 +820,7 @@ int unit_main(int argc, char** argv) {
 #endif
 
 #endif // !UNIT__IMPLEMENTED
+
 
 #endif // UNIT_IMPLEMENT
 
