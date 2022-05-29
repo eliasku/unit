@@ -171,7 +171,7 @@ void unit__on_end(struct unit_test* unit) {
             putchar('\n');
 
             if (unit__fails) {
-                fpos_t pos = ftell(unit__fails);
+                const long pos = ftell(unit__fails);
                 unit__fails_mem[pos] = 0;
                 fclose(unit__fails);
                 unit__fails = 0;
