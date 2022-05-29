@@ -1,3 +1,5 @@
+#include "fmemopen.c"
+
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
