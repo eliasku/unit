@@ -418,6 +418,10 @@ FILE* fmemopen(void* buf, size_t len, const char* type) {
 #endif
 
 
+// TODO: remove test flag
+//#define UNIT_ANIMATE
+
+
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
@@ -433,7 +437,7 @@ FILE* fmemopen(void* buf, size_t len, const char* type) {
 #define UNIT_COLOR_LABEL_PASS UNIT_COLOR_BOLD "\033[30;42m"
 #define UNIT_COLOR_LABEL_FAIL UNIT_COLOR_BOLD "\033[30;41m"
 #define UNIT_COLOR_LABEL_SKIP UNIT_COLOR_BOLD "\033[30;47m"
-#define UNIT_COLOR_LABEL_RUNS UNIT_COLOR_BOLD "\033[30;44m"
+#define UNIT_COLOR_LABEL_RUNS UNIT_COLOR_BOLD "\033[30;46m"
 #else
 #define UNIT_COLOR_RESET
 #define UNIT_COLOR_BOLD
@@ -491,6 +495,20 @@ FILE* fmemopen(void* buf, size_t len, const char* type) {
 
 // region reporting
 
+#ifndef UNIT_ANIMATE
+#define PRINT_STEP do{}while(0)
+#else
+
+static void unit__sleep(double seconds) {
+    const long secs = (long) seconds;
+    const long nanos = (long) ((seconds - (double) secs) * 1000000000.0);
+    struct timespec ts = {secs, nanos};
+    nanosleep(&ts, NULL);
+}
+
+#define PRINT_STEP do{fflush(stdout);unit__sleep(0.1);}while(0)
+#endif // UNIT_ANIMATE
+
 static char unit__fails_mem[4096];
 static FILE* unit__fails = 0;
 
@@ -536,78 +554,79 @@ static const char* beautify_name(const char* name) {
 }
 
 void unit__on_begin(struct unit_test* unit) {
-    if (unit->skip) {
-        if (!unit->parent) {
-            UNIT_PRINTF(UNIT_COLOR_LABEL_SKIP " SKIP " UNIT_COLOR_RESET " %s", beautify_name(unit->name));
+    if (!unit->parent) {
+        UNIT_PRINTF(UNIT_COLOR_LABEL_RUNS " RUNS " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s " UNIT_COLOR_RESET,
+                    beautify_name(unit->name));
+        PRINT_STEP;
+    }
+}
+
+static void print_node(struct unit_test* node) {
+    PRINT_STEP;
+    ++unit_depth;
+    const char* name = beautify_name(node->name);
+    UNIT_PUTS(unit__spaces(0));
+    if (node->kind == 0) {
+        if (node->skip) {
+            UNIT_PRINTF(UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET, name);
         } else {
-            UNIT_PRINTF(UNIT_MSG_SKIP, unit__spaces(0), beautify_name(unit->name));
+            UNIT_PRINTF("%s", name);
         }
-        unit__end_line(0.0);
     } else {
-        if (unit->kind == 0) {
-            UNIT_PUTS(unit__spaces(0));
-            if (!unit->parent) {
-                UNIT_PRINTF(UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n", beautify_name(unit->name));
-            } else {
-                UNIT_PRINTF("%s\n", beautify_name(unit->name));
-            }
+        if (node->skip) {
+            UNIT_PRINTF(UNIT_MSG_SKIP, "", name);
         } else {
-#ifdef UNIT_VERBOSE
-            UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_TEST, unit__log_prefix(0), beautify_name(unit->name));
-#endif
+            UNIT_PRINTF(unit__status_msg(node->status), "", name);
         }
     }
-
-    ++unit_depth;
+    unit__end_line(node->elapsed_time);
+    for (struct unit_test* child = node->children; child; child = child->next) {
+        print_node(child);
+    }
+    --unit_depth;
 }
 
 void unit__on_end(struct unit_test* unit) {
-    if (unit->kind == 1) {
-        --unit_depth;
-        if (!unit->skip) {
-            UNIT_PRINTF(unit__status_msg(unit->status),
-                        unit__spaces(0), beautify_name(unit->name));
-            unit__end_line(unit->elapsed_time);
+    if (unit->parent) {
+        if (unit->kind == 1) {
+            if (unit->status == UNIT_STATUS_SKIPPED) {
+                UNIT_PUTS(UNIT__ICON_SKIP);
+            } else if (unit->status == UNIT_STATUS_FAILED) {
+                UNIT_PUTS(UNIT__ICON_FAIL);
+            } else if (unit->status == UNIT_STATUS_SUCCESS) {
+                UNIT_PUTS(UNIT__ICON_OK);
+            }
+            PRINT_STEP;
         }
         return;
     }
-
-    --unit_depth;
-    const char* result = 0;
+    // go back to the beginning of line
+    UNIT_PUTS("\n\033[1A\033[999D");
+    const char* name = beautify_name(unit->name);
     if (unit->skip) {
-
+        UNIT_PRINTF(UNIT_COLOR_LABEL_SKIP " SKIP " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s" UNIT_COLOR_RESET, name);
     } else if (unit->passed < unit->total) {
-        result = UNIT_MSG_RESULT_FAIL;
+        UNIT_PRINTF(
+                UNIT_COLOR_LABEL_FAIL " FAIL " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s " UNIT_COLOR_RESET ": passed %d/%d tests",
+                name, unit->passed, unit->total);
     } else {
-        result = UNIT_MSG_RESULT_OK;
+        UNIT_PRINTF(
+                UNIT_COLOR_LABEL_PASS " PASS " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s" UNIT_COLOR_RESET ": passed %d/%d tests",
+                name, unit->passed, unit->total);
     }
-    if (result) {
-#ifdef UNIT_VERBOSE
-        UNIT_PRINTF(result, unit__spaces(0), beautify_name(unit->name), unit->passed, unit->total);
-        unit__end_line(unit->elapsed_time);
-#endif
-        if (!unit->parent) {
-            // добавляем дополнительный отступ между блоками
-            putchar('\n');
+    unit__end_line(unit->elapsed_time);
 
-            if (unit__fails) {
-                const long pos = ftell(unit__fails);
-                unit__fails_mem[pos] = 0;
-                fclose(unit__fails);
-                unit__fails = 0;
-                UNIT_PUTS(unit__fails_mem);
-            }
+    if (unit__fails) {
+        print_node(unit->children);
+        putchar('\n');
 
-            if (unit->passed < unit->total) {
-                UNIT_PRINTF(UNIT_COLOR_LABEL_FAIL " FAIL " UNIT_COLOR_RESET " %s: passed %d/%d tests",
-                            beautify_name(unit->name), unit->passed, unit->total);
-            } else {
-                UNIT_PRINTF(UNIT_COLOR_LABEL_PASS " PASS " UNIT_COLOR_RESET " %s: passed %d/%d tests",
-                            beautify_name(unit->name), unit->passed, unit->total);
-            }
-            unit__end_line(unit->elapsed_time);
-            putchar('\n');
-        }
+        const long pos = ftell(unit__fails);
+        unit__fails_mem[pos] = 0;
+        fclose(unit__fails);
+        unit__fails = 0;
+        UNIT_PUTS(unit__fails_mem);
+
+        putchar('\n');
     }
 }
 
@@ -626,6 +645,7 @@ static void unit__breadcrumbs(struct unit_test* test) {
 void unit__on_fail(struct unit_test* unit, const char* msg) {
     const int indent = 1 - unit_depth;
     if (unit__fails == 0) {
+        // TODO: change to `tmpfile` ?
         unit__fails = fmemopen(unit__fails_mem, sizeof unit__fails_mem, "w");
     }
     fputs(unit__spaces(indent), unit__fails);
@@ -665,12 +685,13 @@ void unit__on_echo(const char* msg) {
 
 // endregion reporting
 
-static void printer_setup(void) {
+static void print_header(void) {
     UNIT_PUTS("\n" UNIT_COLOR_LABEL_PASS " ✓ηỉτ " UNIT_COLOR_LABEL_FAIL " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
+    PRINT_STEP;
 }
 
 struct unit_printer unit_printer = (struct unit_printer) {
-        .setup = printer_setup,
+        .setup = print_header,
         .begin = unit__on_begin,
         .end = unit__on_end,
         .fail = unit__on_fail,
@@ -799,12 +820,35 @@ double unit__time(double prev) {
 
 // region начало конец запуска каждого теста
 
+static struct unit_test* get_last_child(struct unit_test* children) {
+    while (children && children->next) {
+        children = children->next;
+    }
+    return children;
+}
+
+static void add_child(struct unit_test* parent, struct unit_test* child) {
+    if (child->parent) {
+        return;
+    }
+    if (parent) {
+        struct unit_test* last = get_last_child(parent->children);
+        if (last) {
+            last->next = child;
+        } else {
+            child->next = parent->children;
+            parent->children = child;
+        }
+    }
+    child->parent = parent;
+}
+
 int unit__begin(struct unit_test* unit) {
     unit->t0 = unit__time(0.0);
     unit->state = 0;
     unit->status = UNIT_STATUS_SUCCESS;
     unit->assert_desc = NULL;
-    unit->parent = unit_cur;
+    add_child(unit_cur, unit);
     unit_cur = unit;
     unit_printer.begin(unit);
 

@@ -136,12 +136,35 @@ double unit__time(double prev) {
 
 // region начало конец запуска каждого теста
 
+static struct unit_test* get_last_child(struct unit_test* children) {
+    while (children && children->next) {
+        children = children->next;
+    }
+    return children;
+}
+
+static void add_child(struct unit_test* parent, struct unit_test* child) {
+    if (child->parent) {
+        return;
+    }
+    if (parent) {
+        struct unit_test* last = get_last_child(parent->children);
+        if (last) {
+            last->next = child;
+        } else {
+            child->next = parent->children;
+            parent->children = child;
+        }
+    }
+    child->parent = parent;
+}
+
 int unit__begin(struct unit_test* unit) {
     unit->t0 = unit__time(0.0);
     unit->state = 0;
     unit->status = UNIT_STATUS_SUCCESS;
     unit->assert_desc = NULL;
-    unit->parent = unit_cur;
+    add_child(unit_cur, unit);
     unit_cur = unit;
     unit_printer.begin(unit);
 
