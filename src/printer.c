@@ -1,9 +1,5 @@
 #include "fmemopen.c"
 
-// TODO: remove test flag
-//#define UNIT_ANIMATE
-
-
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
@@ -16,7 +12,8 @@
 #define UNIT_COLOR_SUCCESS "\033[32m"
 #define UNIT_COLOR_FAIL "\033[31m"
 #define UNIT_COLOR_DESC "\033[33m"
-#define UNIT_COLOR_LABEL_PASS UNIT_COLOR_BOLD "\033[30;42m"
+#define UNIT_COLOR_INVERT_PASS "\033[30;42m"
+#define UNIT_COLOR_LABEL_PASS UNIT_COLOR_BOLD UNIT_COLOR_INVERT_PASS
 #define UNIT_COLOR_LABEL_FAIL UNIT_COLOR_BOLD "\033[30;41m"
 #define UNIT_COLOR_LABEL_SKIP UNIT_COLOR_BOLD "\033[30;47m"
 #define UNIT_COLOR_LABEL_RUNS UNIT_COLOR_BOLD "\033[30;46m"
@@ -30,6 +27,7 @@
 #define UNIT_COLOR_SUCCESS
 #define UNIT_COLOR_FAIL
 #define UNIT_COLOR_DESC
+#define UNIT_COLOR_INVERT_PASS
 #define UNIT_COLOR_LABEL_PASS
 #define UNIT_COLOR_LABEL_FAIL
 #define UNIT_COLOR_LABEL_SKIP
@@ -268,7 +266,7 @@ void unit__on_echo(const char* msg) {
 // endregion reporting
 
 static void print_header(void) {
-    UNIT_PUTS("\n" UNIT_COLOR_LABEL_PASS " ✓ηỉτ " UNIT_COLOR_LABEL_FAIL " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
+    UNIT_PUTS("\n" UNIT_COLOR_LABEL_RUNS " ✓ηỉτ " UNIT_COLOR_RESET UNIT_COLOR_INVERT_PASS " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
     PRINT_STEP;
 }
 

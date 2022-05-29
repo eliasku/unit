@@ -32,8 +32,6 @@ suite( you_should_define_the_suite_name_here ) {
 
 ```
 
-<sub>✓ηỉτ</sub>
-
 ![output](docs/output.png)
 
 ### Verbose Mode

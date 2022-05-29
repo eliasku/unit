@@ -1,4 +1,5 @@
 //#define UNIT_VERBOSE
+//#define UNIT_ANIMATE
 #define UNIT_MAIN
 #include <unit.h>
 
