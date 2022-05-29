@@ -6,8 +6,6 @@ add_executable(${PROJECT_NAME}
         main.cpp
         asserts.c
         fun.c
-        expect.c
-        expect_that.c
         )
 target_compile_definitions(${PROJECT_NAME} PUBLIC UNIT_TESTING)
 target_link_libraries(${PROJECT_NAME} PUBLIC unit)

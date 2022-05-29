@@ -23,7 +23,7 @@ struct unit_test* unit_cur = NULL;
 struct unit_test* unit__file(struct unit_test* new_unit, const char* filepath) {
     struct unit_test* t = unit_tests;
     while (t) {
-        if (t->src == filepath) {
+        if (t->filepos == filepath) {
             return t;
         }
         t = t->next;
@@ -179,7 +179,7 @@ int unit_main(int argc, char** argv) {
     (void) (argv);
 
     unit_printer.setup();
-    
+
     int failed = 0;
     for (struct unit_test* file = unit_tests; file; file = file->next) {
         UNIT_TRY_SCOPE(unit__begin(file), unit__end(file)) {

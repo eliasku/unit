@@ -45,12 +45,12 @@ enum {
 
 struct unit_test {
     const char* name;
-    const char* src;
-    double t0;
-    double elapsed_time;
-
+    const char* filepos;
     // 0 - group, 1 - test
     int kind;
+
+    double t0;
+    double elapsed_time;
 
     void (* fn)(void);
 
@@ -125,9 +125,9 @@ struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test tmp = (struct unit_test) {.src = __FILE__}; \
+        static struct unit_test tmp = (struct unit_test) {.filepos = __FILE__}; \
         struct unit_test* file = unit__file(&tmp, __FILE__); \
-        static struct unit_test u = (struct unit_test) {.name = Name, .src = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
+        static struct unit_test u = (struct unit_test) {.name = Name, .filepos = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
         u.parent = file; \
         u.next = file->children; \
         file->children = &u; \
@@ -138,7 +138,7 @@ struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
 
 #define UNIT__DECL(IsTest, Var, Name, ...) \
     static struct unit_test Var = (struct unit_test){ \
-    .name = Name, .kind = IsTest, .src = UNIT__FILEPOS, __VA_ARGS__}; \
+    .name = Name, .filepos = UNIT__FILEPOS, .kind = IsTest, __VA_ARGS__}; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
 #define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
