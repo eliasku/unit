@@ -140,9 +140,7 @@ static struct unit_test* get_last_child(struct unit_test* children) {
 }
 
 static void add_child(struct unit_test* parent, struct unit_test* child) {
-    if (child->parent) {
-        return;
-    }
+    //assert (!child->parent);
     if (parent) {
         struct unit_test* last = get_last_child(parent->children);
         if (last) {
@@ -196,19 +194,20 @@ int unit_main(int argc, char** argv) {
 #ifdef UNIT_VERBOSE
     verbose = true;
 #endif
-    bool colors = true;
-#ifdef UNIT_NO_COLOR
-    colors = false;
-#endif
+//    bool colors = true;
+//#ifdef UNIT_NO_COLOR
+//    colors = false;
+//#endif
     if (argv) {
         for (int i = 0; i < argc; ++i) {
             const char* arg = argv[i];
             if (arg) {
                 if (strstr(arg, "--verbose") == arg) {
                     verbose = true;
-                } else if (strstr(arg, "--no-color") == arg) {
-                    colors = false;
                 }
+                // else if (strstr(arg, "--no-color") == arg) {
+                //     colors = false;
+                // }
             }
         }
     }
