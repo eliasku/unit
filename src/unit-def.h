@@ -41,18 +41,36 @@ enum {
     UNIT__LEVEL_CHECK = 1,
     // проваливает тест и пропускает следующие проверки в текущем тесте
     UNIT__LEVEL_REQUIRE = 2,
+
+    // types
+    UNIT__TYPE_CASE = 0,
+    UNIT__TYPE_TEST = 1,
+
+    // printer commands
+    UNIT__PRINTER_SETUP = 0,
+    UNIT__PRINTER_SHUTDOWN = 1,
+    UNIT__PRINTER_BEGIN = 2,
+    UNIT__PRINTER_END = 3,
+    UNIT__PRINTER_ECHO = 4,
+    UNIT__PRINTER_FAIL = 5,
+    UNIT__PRINTER_ASSERTION = 6,
+};
+
+struct unit__options {
+    bool dummy__;
+    bool failing;
+    bool skip;
 };
 
 struct unit_test {
     const char* name;
     const char* filepos;
-    // 0 - group, 1 - test
-    int kind;
+    void (* fn)(void);
+    int type;
+    struct unit__options options;
 
     double t0;
-    double elapsed_time;
-
-    void (* fn)(void);
+    double elapsed;
 
     struct unit_test* next;
     struct unit_test* children;
@@ -60,8 +78,6 @@ struct unit_test {
 
     int total;
     int passed;
-    bool allow_fail;
-    bool skip;
 
     // test
     // status of current assertion
@@ -73,30 +89,22 @@ struct unit_test {
     const char* assert_desc;
     const char* assert_loc;
     int assert_level;
+    int assert_status;
 };
 
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
 struct unit_printer {
-    void (* setup)(void);
-
-    void (* begin)(struct unit_test* unit);
-
-    void (* end)(struct unit_test* unit);
-
-    void (* fail)(struct unit_test* unit, const char* msg);
-
-    void (* assertion)(struct unit_test* unit, int status);
-
-    void (* echo)(const char* msg);
+    void (* callback)(int cmd, struct unit_test* unit, const char* msg);
+    struct unit_printer* next;
 };
-
-extern struct unit_printer unit_printer;
 
 int unit__begin(struct unit_test* unit);
 
 void unit__end(struct unit_test* unit);
+
+void unit__echo(const char* msg);
 
 int unit_main(int argc, char** argv);
 
@@ -119,30 +127,22 @@ int unit_main(int argc, char** argv);
 #define UNIT__TRY_BODY(begin, end, Var) for (int Var = (begin) ? 0 : (end, 1); !Var; ++Var, end)
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
-// find or create root unit for .c file
-struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
-
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test tmp = (struct unit_test) {.filepos = __FILE__}; \
-        struct unit_test* file = unit__file(&tmp, __FILE__); \
-        static struct unit_test u = (struct unit_test) {.name = Name, .filepos = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
-        u.parent = file; \
-        u.next = file->children; \
-        file->children = &u; \
+        static struct unit_test u = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=Var, .type=UNIT__TYPE_CASE, .options=(struct unit__options){ __VA_ARGS__ } }; \
+        u.next = unit_tests; unit_tests = &u; \
     } \
     static void Var(void)
 
 #define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), #Name, __VA_ARGS__)
 
-#define UNIT__DECL(IsTest, Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){ \
-    .name = Name, .filepos = UNIT__FILEPOS, .kind = IsTest, __VA_ARGS__}; \
+#define UNIT__DECL(Type, Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=NULL, .type=Type, .options=(struct unit__options){ __VA_ARGS__ } }; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
-#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(UNIT__TYPE_CASE, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(UNIT__TYPE_TEST, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
@@ -214,7 +214,7 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #define UNIT_REQUIRE_LE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
 
 #define UNIT_SKIP() unit_cur->state |= UNIT__LEVEL_REQUIRE
-#define UNIT_ECHO(msg) unit_printer.echo(msg)
+#define UNIT_ECHO(msg) unit__echo(msg)
 
 #ifdef __cplusplus
 }

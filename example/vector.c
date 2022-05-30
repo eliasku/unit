@@ -45,10 +45,10 @@ void* vector_get(vector* vec, size_t idx) {
 #define UNIT_MAIN
 #include <unit.h>
 
-suite(vector, .allow_fail = true) {
+suite(vector) {
     vector vec;
 
-    it("breaks the rules of math (to demonstrate failed tests)") {
+    it("breaks the rules of math (to demonstrate failed tests)", .failing = true) {
         require_eq(1, 2, binary op fail);
         echo("Oh, noes!");
         // these checks will be skipped after previous fail

@@ -19,22 +19,6 @@ int main(int argc, char** argv) {
 struct unit_test* unit_tests = NULL;
 struct unit_test* unit_cur = NULL;
 
-// find or create root unit for .c file
-struct unit_test* unit__file(struct unit_test* new_unit, const char* filepath) {
-    struct unit_test* t = unit_tests;
-    while (t) {
-        if (t->filepos == filepath) {
-            return t;
-        }
-        t = t->next;
-    }
-    const char* filename = strrchr(filepath, '/');
-    new_unit->name = filename ? (filename + 1) : filepath;
-    new_unit->next = unit_tests;
-    unit_tests = new_unit;
-    return new_unit;
-}
-
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
     static char s_buffer[4096];
@@ -66,6 +50,11 @@ const char* unit__op_nexpl[] = {
         " >= ",
 };
 
+struct unit_printer* unit__printers;
+
+#define UNIT__EACH_PRINTER(Func, ...) \
+for(struct unit_printer* p = unit__printers; p; p = p->next) { p->callback(UNIT__PRINTER_ ## Func, __VA_ARGS__); }
+
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
     unit_cur->assert_comment = comment;
     unit_cur->assert_desc = desc;
@@ -73,7 +62,8 @@ bool unit__prepare_assert(int level, const char* loc, const char* comment, const
     unit_cur->assert_loc = loc;
     if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
         // пропустить проверку
-        unit_printer.assertion(unit_cur, UNIT_STATUS_SKIPPED);
+        unit_cur->assert_status = UNIT_STATUS_SKIPPED;
+        UNIT__EACH_PRINTER(ASSERTION, unit_cur, 0);
         return false;
     }
     return true;
@@ -86,10 +76,15 @@ static void unit__fail_impl(const char* fmt, ...) {
     va_end(args);
 
     if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
-        unit_cur->status = UNIT_STATUS_FAILED;
         unit_cur->state |= unit_cur->assert_level;
+        for (struct unit_test* n = unit_cur; n; n = n->parent) {
+            if (n->options.failing) {
+                break;
+            }
+            n->status = UNIT_STATUS_FAILED;
+        }
     }
-    unit_printer.fail(unit_cur, msg);
+    UNIT__EACH_PRINTER(FAIL, unit_cur, msg);
 }
 
 #define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
@@ -105,7 +100,8 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
     } \
-    unit_printer.assertion(unit_cur, pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    unit_cur->assert_status = pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED; \
+    UNIT__EACH_PRINTER(ASSERTION, unit_cur, 0); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
@@ -166,52 +162,71 @@ int unit__begin(struct unit_test* unit) {
     unit->assert_desc = NULL;
     add_child(unit_cur, unit);
     unit_cur = unit;
-    unit_printer.begin(unit);
-
-    if (unit->kind == 1) {
+    if (unit->options.skip) {
+        unit->status = UNIT_STATUS_SKIPPED;
+    } else if (unit->type == UNIT__TYPE_TEST) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
             u->total++;
         }
     }
-
-    if (unit->skip) {
-        unit->status = UNIT_STATUS_SKIPPED;
-    }
-
-    return !unit->skip;
+    UNIT__EACH_PRINTER(BEGIN, unit, 0);
+    return !unit->options.skip;
 }
 
 void unit__end(struct unit_test* unit) {
-    if (unit->kind == 1) {
-        const bool success = unit->status != UNIT_STATUS_FAILED;
-        bool allow_fail = false;
+    if (unit->type == UNIT__TYPE_TEST && unit->status == UNIT_STATUS_SUCCESS) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
-            allow_fail = allow_fail || u->allow_fail;
-            if (success || allow_fail) {
-                u->passed++;
-            }
+            u->passed++;
         }
     }
-    unit->elapsed_time = unit__time(unit->t0);
-    unit_printer.end(unit);
+    unit->elapsed = unit__time(unit->t0);
+    UNIT__EACH_PRINTER(END, unit, 0);
     unit_cur = unit->parent;
+}
+
+void unit__echo(const char* msg) {
+    UNIT__EACH_PRINTER(ECHO, unit_cur, msg);
 }
 
 int unit_main(int argc, char** argv) {
     (void) (argc);
     (void) (argv);
 
-    unit_printer.setup();
-
-    int failed = 0;
-    for (struct unit_test* file = unit_tests; file; file = file->next) {
-        UNIT_TRY_SCOPE(unit__begin(file), unit__end(file)) {
-            for (struct unit_test* suite = file->children; suite; suite = suite->next) {
-                UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+    bool verbose = false;
+#ifdef UNIT_VERBOSE
+    verbose = true;
+#endif
+    bool colors = true;
+#ifdef UNIT_NO_COLOR
+    colors = false;
+#endif
+    if (argv) {
+        for (int i = 0; i < argc; ++i) {
+            const char* arg = argv[i];
+            if (arg) {
+                if (strstr(arg, "--verbose") == arg) {
+                    verbose = true;
+                } else if (strstr(arg, "--no-color") == arg) {
+                    colors = false;
+                }
             }
         }
-        failed += (file->passed < file->total) ? 1 : 0;
     }
+    static struct unit_printer printer;
+    printer.callback = verbose ? printer_debug : printer_def;
+    unit__printers = &printer;
+
+    UNIT__EACH_PRINTER(SETUP, 0, 0);
+
+    int failed = 0;
+    for (struct unit_test* suite = unit_tests; suite; suite = suite->next) {
+        UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+        if (suite->status == UNIT_STATUS_FAILED) {
+            ++failed;
+        }
+    }
+
+    UNIT__EACH_PRINTER(SHUTDOWN, 0, 0);
 
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;
 }

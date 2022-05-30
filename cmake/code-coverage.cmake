@@ -23,18 +23,31 @@ function(target_code_coverage TARGET_NAME)
 endfunction()
 
 function(test_code_coverage TARGET_NAME)
+    set(options)
+    set(oneValueArg NAME)
+    set(multiValueArgs ARGS)
+    cmake_parse_arguments(test_code_coverage "${options}" "${oneValueArg}"
+            "${multiValueArgs}" ${ARGN})
     if (CODE_COVERAGE)
-        list(APPEND COVERAGE_COLLECT_TARGETS coverage-collect-${TARGET_NAME})
+        if (NOT test_code_coverage_ARGS)
+            set(test_code_coverage_ARGS "")
+        endif ()
+
+        if (NOT test_code_coverage_NAME)
+            set(test_code_coverage_NAME ${TARGET_NAME})
+        endif ()
+
+        list(APPEND COVERAGE_COLLECT_TARGETS coverage-collect-${test_code_coverage_NAME})
         set(COVERAGE_COLLECT_TARGETS ${COVERAGE_COLLECT_TARGETS} CACHE INTERNAL "COVERAGE_COLLECT_TARGETS")
 
-        list(APPEND COVERAGE_RAW_PROFILES ${CMAKE_BINARY_DIR}/${TARGET_NAME}.profraw)
+        list(APPEND COVERAGE_RAW_PROFILES ${CMAKE_BINARY_DIR}/${test_code_coverage_NAME}.profraw)
         set(COVERAGE_RAW_PROFILES ${COVERAGE_RAW_PROFILES} CACHE INTERNAL "COVERAGE_RAW_PROFILES")
 
         list(APPEND COVERAGE_OBJECT_FILES -object $<TARGET_FILE:${TARGET_NAME}>)
         set(COVERAGE_OBJECT_FILES ${COVERAGE_OBJECT_FILES} CACHE INTERNAL "COVERAGE_OBJECT_FILES")
 
-        add_custom_target(coverage-collect-${TARGET_NAME}
-                COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${CMAKE_BINARY_DIR}/${TARGET_NAME}.profraw" $<TARGET_FILE:${TARGET_NAME}>
+        add_custom_target(coverage-collect-${test_code_coverage_NAME}
+                COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${CMAKE_BINARY_DIR}/${test_code_coverage_NAME}.profraw" $<TARGET_FILE:${TARGET_NAME}> ${test_code_coverage_ARGS} || (exit 0)
                 )
     endif ()
 endfunction()

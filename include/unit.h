@@ -124,18 +124,36 @@ enum {
     UNIT__LEVEL_CHECK = 1,
     // проваливает тест и пропускает следующие проверки в текущем тесте
     UNIT__LEVEL_REQUIRE = 2,
+
+    // types
+    UNIT__TYPE_CASE = 0,
+    UNIT__TYPE_TEST = 1,
+
+    // printer commands
+    UNIT__PRINTER_SETUP = 0,
+    UNIT__PRINTER_SHUTDOWN = 1,
+    UNIT__PRINTER_BEGIN = 2,
+    UNIT__PRINTER_END = 3,
+    UNIT__PRINTER_ECHO = 4,
+    UNIT__PRINTER_FAIL = 5,
+    UNIT__PRINTER_ASSERTION = 6,
+};
+
+struct unit__options {
+    bool dummy__;
+    bool failing;
+    bool skip;
 };
 
 struct unit_test {
     const char* name;
     const char* filepos;
-    // 0 - group, 1 - test
-    int kind;
+    void (* fn)(void);
+    int type;
+    struct unit__options options;
 
     double t0;
-    double elapsed_time;
-
-    void (* fn)(void);
+    double elapsed;
 
     struct unit_test* next;
     struct unit_test* children;
@@ -143,8 +161,6 @@ struct unit_test {
 
     int total;
     int passed;
-    bool allow_fail;
-    bool skip;
 
     // test
     // status of current assertion
@@ -156,30 +172,22 @@ struct unit_test {
     const char* assert_desc;
     const char* assert_loc;
     int assert_level;
+    int assert_status;
 };
 
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
 struct unit_printer {
-    void (* setup)(void);
-
-    void (* begin)(struct unit_test* unit);
-
-    void (* end)(struct unit_test* unit);
-
-    void (* fail)(struct unit_test* unit, const char* msg);
-
-    void (* assertion)(struct unit_test* unit, int status);
-
-    void (* echo)(const char* msg);
+    void (* callback)(int cmd, struct unit_test* unit, const char* msg);
+    struct unit_printer* next;
 };
-
-extern struct unit_printer unit_printer;
 
 int unit__begin(struct unit_test* unit);
 
 void unit__end(struct unit_test* unit);
+
+void unit__echo(const char* msg);
 
 int unit_main(int argc, char** argv);
 
@@ -202,30 +210,22 @@ int unit_main(int argc, char** argv);
 #define UNIT__TRY_BODY(begin, end, Var) for (int Var = (begin) ? 0 : (end, 1); !Var; ++Var, end)
 #define UNIT_TRY_SCOPE(begin, end) UNIT__TRY_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
-// find or create root unit for .c file
-struct unit_test* unit__file(struct unit_test* ss, const char* filepath);
-
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test tmp = (struct unit_test) {.filepos = __FILE__}; \
-        struct unit_test* file = unit__file(&tmp, __FILE__); \
-        static struct unit_test u = (struct unit_test) {.name = Name, .filepos = UNIT__FILEPOS, .fn = &Var, __VA_ARGS__ }; \
-        u.parent = file; \
-        u.next = file->children; \
-        file->children = &u; \
+        static struct unit_test u = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=Var, .type=UNIT__TYPE_CASE, .options=(struct unit__options){ __VA_ARGS__ } }; \
+        u.next = unit_tests; unit_tests = &u; \
     } \
     static void Var(void)
 
 #define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), #Name, __VA_ARGS__)
 
-#define UNIT__DECL(IsTest, Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){ \
-    .name = Name, .filepos = UNIT__FILEPOS, .kind = IsTest, __VA_ARGS__}; \
+#define UNIT__DECL(Type, Var, Name, ...) \
+    static struct unit_test Var = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=NULL, .type=Type, .options=(struct unit__options){ __VA_ARGS__ } }; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
-#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(0, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
-#define UNIT_TEST(Name, ...) UNIT__DECL(1, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
+#define UNIT_DESCRIBE(Name, ...) UNIT__DECL(UNIT__TYPE_CASE, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
+#define UNIT_TEST(Name, ...) UNIT__DECL(UNIT__TYPE_TEST, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
 
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
 
@@ -297,7 +297,7 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #define UNIT_REQUIRE_LE(a, b, ...) UNIT__ASSERT(UNIT__LEVEL_REQUIRE, UNIT__OP_LE, a, b, "require " #a " <= " #b, __VA_ARGS__)
 
 #define UNIT_SKIP() unit_cur->state |= UNIT__LEVEL_REQUIRE
-#define UNIT_ECHO(msg) unit_printer.echo(msg)
+#define UNIT_ECHO(msg) unit__echo(msg)
 
 #ifdef __cplusplus
 }
@@ -474,22 +474,8 @@ FILE* fmemopen(void* buf, size_t len, const char* type) {
 #define UNIT__TXT_FAIL
 #define UNIT__TXT_SKIP
 
-// $prefix 0 Status: $message
-#define UNIT_MSG_CASE       "%s" UNIT__ICON_LI UNIT_COLOR_BOLD "%s" UNIT_COLOR_RESET "\n"
-#define UNIT_MSG_TEST       "%s" UNIT__ICON_RUN "%s" UNIT_COLOR_RESET "\n"
-#define UNIT_MSG_OK         "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
-#define UNIT_MSG_SKIP       "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
-#define UNIT_MSG_FAIL       "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET
-#define UNIT_MSG_ECHO       "%s" UNIT__ICON_MSG UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n"
-
-#define UNIT_MSG_RESULT_SKIP "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
-#define UNIT_MSG_RESULT_FAIL "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
-#define UNIT_MSG_RESULT_OK  "%s" UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_BOLD "%s: passed %d/%d tests" UNIT_COLOR_RESET
-
 #define UNIT_PRINTF(fmt, ...) fprintf(stdout, fmt, __VA_ARGS__)
 #define UNIT_PUTS(str) fputs(str, stdout)
-
-#define UNIT__LOG_PREFIX "` "
 
 // region reporting
 
@@ -520,25 +506,6 @@ const char* unit_spaces[8] = {
         "            ",
         "              "
 };
-int unit_depth = 0;
-
-const char* unit__spaces(int delta) {
-    int i = unit_depth + delta;
-    if (i < 0) i = 0;
-    if (i > 7) i = 7;
-    return unit_spaces[i];
-}
-
-const char* unit__log_prefix(int delta) {
-    return unit__spaces(delta - 1);
-}
-
-const char* unit__status_msg(int status) {
-    const char* dict[3] = {UNIT_MSG_OK,
-                           UNIT_MSG_SKIP,
-                           UNIT_MSG_FAIL};
-    return dict[status];
-}
 
 void unit__end_line(double elapsed_time) {
     if (elapsed_time >= 0.01) {
@@ -551,7 +518,7 @@ static const char* beautify_name(const char* name) {
     return UNIT__IS_NOT_EMPTY_STR(_, name) ? name : "(anonymous)";
 }
 
-void unit__on_begin(struct unit_test* unit) {
+void printer_def_begin(struct unit_test* unit) {
     if (!unit->parent) {
         UNIT_PRINTF(UNIT_COLOR_LABEL_RUNS " RUNS " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s " UNIT_COLOR_RESET,
                     beautify_name(unit->name));
@@ -559,34 +526,42 @@ void unit__on_begin(struct unit_test* unit) {
     }
 }
 
+int def_depth = 0;
+
+const char* unit__spaces(int delta) {
+    int i = def_depth + delta;
+    if (i < 0) i = 0;
+    if (i > 7) i = 7;
+    return unit_spaces[i];
+}
+
 static void print_node(struct unit_test* node) {
     PRINT_STEP;
-    ++unit_depth;
+    ++def_depth;
     const char* name = beautify_name(node->name);
     UNIT_PUTS(unit__spaces(0));
-    if (node->kind == 0) {
-        if (node->skip) {
+    if (node->type == UNIT__TYPE_CASE) {
+        if (node->status == UNIT_STATUS_SKIPPED) {
             UNIT_PRINTF(UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET, name);
         } else {
             UNIT_PRINTF("%s", name);
         }
     } else {
-        if (node->skip) {
-            UNIT_PRINTF(UNIT_MSG_SKIP, "", name);
-        } else {
-            UNIT_PRINTF(unit__status_msg(node->status), "", name);
-        }
+        const char* dict[3] = {UNIT__ICON_OK UNIT__TXT_OK UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET,
+                               UNIT__ICON_SKIP UNIT__TXT_SKIP UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET,
+                               UNIT__ICON_FAIL UNIT__TXT_FAIL UNIT_COLOR_DIM "%s" UNIT_COLOR_RESET};
+        UNIT_PRINTF(dict[node->status], name);
     }
-    unit__end_line(node->elapsed_time);
+    unit__end_line(node->elapsed);
     for (struct unit_test* child = node->children; child; child = child->next) {
         print_node(child);
     }
-    --unit_depth;
+    --def_depth;
 }
 
-void unit__on_end(struct unit_test* unit) {
+void printer_def_end(struct unit_test* unit) {
     if (unit->parent) {
-        if (unit->kind == 1) {
+        if (unit->type == UNIT__TYPE_TEST) {
             if (unit->status == UNIT_STATUS_SKIPPED) {
                 UNIT_PUTS(UNIT__ICON_SKIP);
             } else if (unit->status == UNIT_STATUS_FAILED) {
@@ -601,7 +576,7 @@ void unit__on_end(struct unit_test* unit) {
     // go back to the beginning of line
     UNIT_PUTS("\n\033[1A\033[999D");
     const char* name = beautify_name(unit->name);
-    if (unit->skip) {
+    if (unit->status == UNIT_STATUS_SKIPPED) {
         UNIT_PRINTF(UNIT_COLOR_LABEL_SKIP " SKIP " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s" UNIT_COLOR_RESET, name);
     } else if (unit->passed < unit->total) {
         UNIT_PRINTF(
@@ -612,10 +587,12 @@ void unit__on_end(struct unit_test* unit) {
                 UNIT_COLOR_LABEL_PASS " PASS " UNIT_COLOR_RESET UNIT_COLOR_BOLD " %s" UNIT_COLOR_RESET ": passed %d/%d tests",
                 name, unit->passed, unit->total);
     }
-    unit__end_line(unit->elapsed_time);
+    unit__end_line(unit->elapsed);
 
     if (unit__fails) {
-        print_node(unit->children);
+        for (struct unit_test* child = unit->children; child; child = child->next) {
+            print_node(child);
+        }
         putchar('\n');
 
         const long pos = ftell(unit__fails);
@@ -631,91 +608,106 @@ void unit__on_end(struct unit_test* unit) {
 static void unit__breadcrumbs(struct unit_test* test) {
     if (test->parent) {
         unit__breadcrumbs(test->parent);
-
-        // skip file's root node
-        if (test->parent->parent) {
-            fputs(" → ", unit__fails);
-        }
-        fputs(beautify_name(test->name), unit__fails);
+        fputs(" → ", unit__fails);
     }
+    fputs(beautify_name(test->name), unit__fails);
 }
 
-void unit__on_fail(struct unit_test* unit, const char* msg) {
-    const int indent = 1 - unit_depth;
+void printer_def_fail(struct unit_test* unit, const char* msg) {
     if (unit__fails == 0) {
         // TODO: change to `tmpfile` ?
         unit__fails = fmemopen(unit__fails_mem, sizeof unit__fails_mem, "w");
     }
-    fputs(unit__spaces(indent), unit__fails);
+    fputs(unit_spaces[1], unit__fails);
     fputs(UNIT__ICON_ASSERT UNIT_COLOR_BOLD UNIT_COLOR_FAIL, unit__fails);
     unit__breadcrumbs(unit_cur);
     fputs(UNIT_COLOR_RESET "\n\n", unit__fails);
 
-    fputs(unit__spaces(indent + 1), unit__fails);
+    fputs(unit_spaces[2], unit__fails);
     fputs(msg, unit__fails);
     fputs("\n", unit__fails);
 #ifndef UNIT_NO_FILEPOS
     fprintf(unit__fails,
             "%s" UNIT_COLOR_DIM "@ " UNIT_COLOR_RESET UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE "%s" UNIT_COLOR_RESET "\n",
-            unit__spaces(indent + 1), unit->assert_loc);
+            unit_spaces[2], unit->assert_loc);
 #endif
     fputc('\n', unit__fails);
 }
 
-void unit__on_assert(struct unit_test* unit, int status) {
-#ifdef UNIT_VERBOSE
-    static const char* fmts[3] = {
-            UNIT__LOG_PREFIX "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n",
-            UNIT__LOG_PREFIX "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n",
-            UNIT__LOG_PREFIX "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n"
-    };
-    const char* cm = unit->assert_comment;
-    const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
-    UNIT_PRINTF(fmts[status], unit__log_prefix(0), desc);
-#endif
-}
-
-void unit__on_echo(const char* msg) {
-#ifdef UNIT_VERBOSE
-    UNIT_PRINTF(UNIT__LOG_PREFIX UNIT_MSG_ECHO, unit__log_prefix(0), msg);
-#endif
-}
-
 // endregion reporting
 
-static void print_header(void) {
-    UNIT_PUTS("\n" UNIT_COLOR_LABEL_RUNS " ✓ηỉτ " UNIT_COLOR_RESET UNIT_COLOR_INVERT_PASS " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
-    PRINT_STEP;
+static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
+    static const char* fail_formats[3] = {
+            "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n",
+            "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n",
+            "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n"
+    };
+    switch (cmd) {
+        case UNIT__PRINTER_SETUP:
+            UNIT_PUTS("\n" UNIT_COLOR_LABEL_RUNS " ✓ηỉτ " UNIT_COLOR_RESET
+                              UNIT_COLOR_INVERT_PASS " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
+            PRINT_STEP;
+            break;
+        case UNIT__PRINTER_BEGIN:
+            printer_def_begin(unit);
+            break;
+        case UNIT__PRINTER_END:
+            printer_def_end(unit);
+            break;
+        case UNIT__PRINTER_FAIL:
+            printer_def_fail(unit, msg);
+            break;
+        default:
+            break;
+    }
 }
 
-struct unit_printer unit_printer = (struct unit_printer) {
-        .setup = print_header,
-        .begin = unit__on_begin,
-        .end = unit__on_end,
-        .fail = unit__on_fail,
-        .assertion = unit__on_assert,
-        .echo = unit__on_echo
-};
+// debug printer
+static int debug_depth = 0;
+
+static const char* debug_spaces(int delta) {
+    int i = debug_depth + delta;
+    if (i < 0) i = 0;
+    if (i > 7) i = 7;
+    return unit_spaces[i];
+}
+
+static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
+    static const char* fail_formats[3] = {
+            "%s" UNIT__ICON_OK UNIT__TXT_OK "%s\n",
+            "%s" UNIT__ICON_SKIP UNIT__TXT_SKIP "%s\n",
+            "%s" UNIT__ICON_FAIL UNIT__TXT_FAIL "%s\n"
+    };
+    switch (cmd) {
+        case UNIT__PRINTER_BEGIN:
+            UNIT_PRINTF("%sBEGIN: %s\n", debug_spaces(0), beautify_name(unit->name));
+            ++debug_depth;
+            break;
+        case UNIT__PRINTER_END:
+            --debug_depth;
+            UNIT_PRINTF("%sEND: %s\n", debug_spaces(0), beautify_name(unit->name));
+            break;
+        case UNIT__PRINTER_ECHO:
+            UNIT_PRINTF("%s" UNIT__ICON_MSG UNIT_COLOR_COMMENT "%s" UNIT_COLOR_RESET "\n", debug_spaces(0), msg);
+            break;
+        case UNIT__PRINTER_FAIL:
+            UNIT_PRINTF("%sFailed: %s\n", debug_spaces(0), beautify_name(unit->name));
+            UNIT_PRINTF("%s      %s\n", debug_spaces(0), msg);
+            break;
+        case UNIT__PRINTER_ASSERTION: {
+            const char* cm = unit->assert_comment;
+            const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
+            UNIT_PRINTF(fail_formats[unit->status], debug_spaces(0), desc);
+        }
+            break;
+        default:
+            break;
+    }
+}
 
 
 struct unit_test* unit_tests = NULL;
 struct unit_test* unit_cur = NULL;
-
-// find or create root unit for .c file
-struct unit_test* unit__file(struct unit_test* new_unit, const char* filepath) {
-    struct unit_test* t = unit_tests;
-    while (t) {
-        if (t->filepos == filepath) {
-            return t;
-        }
-        t = t->next;
-    }
-    const char* filename = strrchr(filepath, '/');
-    new_unit->name = filename ? (filename + 1) : filepath;
-    new_unit->next = unit_tests;
-    unit_tests = new_unit;
-    return new_unit;
-}
 
 // region утилиты для вывода
 const char* unit__vbprintf(const char* fmt, va_list args) {
@@ -748,6 +740,11 @@ const char* unit__op_nexpl[] = {
         " >= ",
 };
 
+struct unit_printer* unit__printers;
+
+#define UNIT__EACH_PRINTER(Func, ...) \
+for(struct unit_printer* p = unit__printers; p; p = p->next) { p->callback(UNIT__PRINTER_ ## Func, __VA_ARGS__); }
+
 bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc) {
     unit_cur->assert_comment = comment;
     unit_cur->assert_desc = desc;
@@ -755,7 +752,8 @@ bool unit__prepare_assert(int level, const char* loc, const char* comment, const
     unit_cur->assert_loc = loc;
     if (unit_cur->state & UNIT__LEVEL_REQUIRE) {
         // пропустить проверку
-        unit_printer.assertion(unit_cur, UNIT_STATUS_SKIPPED);
+        unit_cur->assert_status = UNIT_STATUS_SKIPPED;
+        UNIT__EACH_PRINTER(ASSERTION, unit_cur, 0);
         return false;
     }
     return true;
@@ -768,10 +766,15 @@ static void unit__fail_impl(const char* fmt, ...) {
     va_end(args);
 
     if (unit_cur->assert_level > UNIT__LEVEL_WARN) {
-        unit_cur->status = UNIT_STATUS_FAILED;
         unit_cur->state |= unit_cur->assert_level;
+        for (struct unit_test* n = unit_cur; n; n = n->parent) {
+            if (n->options.failing) {
+                break;
+            }
+            n->status = UNIT_STATUS_FAILED;
+        }
     }
-    unit_printer.fail(unit_cur, msg);
+    UNIT__EACH_PRINTER(FAIL, unit_cur, msg);
 }
 
 #define UNIT__IMPLEMENT_ASSERT(Tag, Type, FormatType, BinaryOp, UnaryOp) \
@@ -787,7 +790,8 @@ void unit__assert_ ## Tag(Type a, Type b, int op, const char* expr, const char* 
         case UNIT__OP_GT: pass = (BinaryOp(a, b)) > 0; break; \
         case UNIT__OP_GE: pass = (BinaryOp(a, b)) >= 0; break; \
     } \
-    unit_printer.assertion(unit_cur, pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED); \
+    unit_cur->assert_status = pass ? UNIT_STATUS_SUCCESS : UNIT_STATUS_FAILED; \
+    UNIT__EACH_PRINTER(ASSERTION, unit_cur, 0); \
     if (!pass) { \
         const char* expl = unit__op_expl[op];                 \
         const char* nexpl = unit__op_nexpl[op];                 \
@@ -848,52 +852,71 @@ int unit__begin(struct unit_test* unit) {
     unit->assert_desc = NULL;
     add_child(unit_cur, unit);
     unit_cur = unit;
-    unit_printer.begin(unit);
-
-    if (unit->kind == 1) {
+    if (unit->options.skip) {
+        unit->status = UNIT_STATUS_SKIPPED;
+    } else if (unit->type == UNIT__TYPE_TEST) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
             u->total++;
         }
     }
-
-    if (unit->skip) {
-        unit->status = UNIT_STATUS_SKIPPED;
-    }
-
-    return !unit->skip;
+    UNIT__EACH_PRINTER(BEGIN, unit, 0);
+    return !unit->options.skip;
 }
 
 void unit__end(struct unit_test* unit) {
-    if (unit->kind == 1) {
-        const bool success = unit->status != UNIT_STATUS_FAILED;
-        bool allow_fail = false;
+    if (unit->type == UNIT__TYPE_TEST && unit->status == UNIT_STATUS_SUCCESS) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
-            allow_fail = allow_fail || u->allow_fail;
-            if (success || allow_fail) {
-                u->passed++;
-            }
+            u->passed++;
         }
     }
-    unit->elapsed_time = unit__time(unit->t0);
-    unit_printer.end(unit);
+    unit->elapsed = unit__time(unit->t0);
+    UNIT__EACH_PRINTER(END, unit, 0);
     unit_cur = unit->parent;
+}
+
+void unit__echo(const char* msg) {
+    UNIT__EACH_PRINTER(ECHO, unit_cur, msg);
 }
 
 int unit_main(int argc, char** argv) {
     (void) (argc);
     (void) (argv);
 
-    unit_printer.setup();
-
-    int failed = 0;
-    for (struct unit_test* file = unit_tests; file; file = file->next) {
-        UNIT_TRY_SCOPE(unit__begin(file), unit__end(file)) {
-            for (struct unit_test* suite = file->children; suite; suite = suite->next) {
-                UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+    bool verbose = false;
+#ifdef UNIT_VERBOSE
+    verbose = true;
+#endif
+    bool colors = true;
+#ifdef UNIT_NO_COLOR
+    colors = false;
+#endif
+    if (argv) {
+        for (int i = 0; i < argc; ++i) {
+            const char* arg = argv[i];
+            if (arg) {
+                if (strstr(arg, "--verbose") == arg) {
+                    verbose = true;
+                } else if (strstr(arg, "--no-color") == arg) {
+                    colors = false;
+                }
             }
         }
-        failed += (file->passed < file->total) ? 1 : 0;
     }
+    static struct unit_printer printer;
+    printer.callback = verbose ? printer_debug : printer_def;
+    unit__printers = &printer;
+
+    UNIT__EACH_PRINTER(SETUP, 0, 0);
+
+    int failed = 0;
+    for (struct unit_test* suite = unit_tests; suite; suite = suite->next) {
+        UNIT_TRY_SCOPE(unit__begin(suite), unit__end(suite)) suite->fn();
+        if (suite->status == UNIT_STATUS_FAILED) {
+            ++failed;
+        }
+    }
+
+    UNIT__EACH_PRINTER(SHUTDOWN, 0, 0);
 
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;
 }
