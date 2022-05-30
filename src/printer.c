@@ -3,7 +3,7 @@
 // region Цвета, текстовые сообщения и логи
 
 #ifndef UNIT_NO_COLORS
-#define UNIT_COLOR_RESET "\033[0m"
+#define UNIT_COLOR_RESET "\033[m"
 #define UNIT_COLOR_BOLD "\033[1m"
 #define UNIT_COLOR_DIM "\033[2m"
 #define UNIT_COLOR_UNDERLINE "\033[4m"
@@ -226,8 +226,7 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
     };
     switch (cmd) {
         case UNIT__PRINTER_SETUP:
-            UNIT_PUTS("\n" UNIT_COLOR_LABEL_RUNS " ✓ηỉτ " UNIT_COLOR_RESET
-                              UNIT_COLOR_INVERT_PASS " v" UNIT_VERSION " " UNIT_COLOR_RESET "\n\n");
+            UNIT_PUTS("\n" "\033[1;30;42m" " ✓ηỉτ " "\033[0;30;46m" " v" UNIT_VERSION " " "\33[m" "\n\n");
             PRINT_STEP;
             break;
         case UNIT__PRINTER_BEGIN:

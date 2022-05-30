@@ -17,11 +17,12 @@ suite(unit) {
         // this is not possible because `test` declares static variable before scope
         //describe("in one-line") it("p");
 
-        describe(unit_cur->skip, .skip=1) {
+        describe(.skip, .skip=1) {
             it("which skip any test inside") require(0, SKIP);
         }
 
-        describe(unit_cur->allow_fail, .failing=1) {
+        // hint for IDE: (struct unit_test){.options.failing}
+        describe(.failing, .failing=1) {
             it("which pass in case of tests failure") {
                 require_eq(2, 2);
                 echo("Next require will fail");
