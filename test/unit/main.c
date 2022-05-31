@@ -3,7 +3,10 @@
 #define UNIT_MAIN
 #include <unit.h>
 
-suite(unit) {
+#define DOCTEST_TEST_CASE TEST_CASE
+#define DOCTEST_TEST_SUITE TEST_CASE
+
+DOCTEST_TEST_SUITE( "unit" ) {
     echo("start");
 
     describe((UNIT_TEST, it, test)) {

@@ -32,17 +32,12 @@
  **/
 
 /**
- * Disable colorful output
+ * Disable colorful output by default
  */
 // #define UNIT_NO_COLORS
 
 /**
- * Disable time measurements
- */
-// #define UNIT_NO_TIME
-
-/**
- * Add run details to the output (echo, assertions)
+ * Select to debug output by default (echo, assertions)
  */
 // #define UNIT_VERBOSE
 

@@ -20,9 +20,10 @@ extern "C" {
 #endif
 
 enum {
-    UNIT_STATUS_SUCCESS = 0,
-    UNIT_STATUS_SKIPPED = 1,
-    UNIT_STATUS_FAILED = 2
+    UNIT_STATUS_RUN = 0,
+    UNIT_STATUS_SUCCESS = 1,
+    UNIT_STATUS_SKIPPED = 2,
+    UNIT_STATUS_FAILED = 3
 };
 
 enum {
@@ -64,7 +65,8 @@ struct unit__options {
 
 struct unit_test {
     const char* name;
-    const char* filepos;
+    const char* file;
+    int line;
     void (* fn)(void);
     int type;
     struct unit__options options;
@@ -87,13 +89,23 @@ struct unit_test {
     int state;
     const char* assert_comment;
     const char* assert_desc;
-    const char* assert_loc;
+    const char* assert_file;
+    int assert_line;
     int assert_level;
     int assert_status;
 };
 
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
+
+struct unit_options {
+    bool color;
+    bool verbose;
+    bool quiet;
+    bool animate;
+};
+
+extern struct unit_options unit__opts;
 
 struct unit_printer {
     void (* callback)(int cmd, struct unit_test* unit, const char* msg);
@@ -115,12 +127,6 @@ int unit_main(int argc, char** argv);
 #define UNIT__CONCAT(a, b) a ## b
 #define UNIT__X_CONCAT(a, b) UNIT__CONCAT(a, b)
 
-#ifdef UNIT_NO_FILEPOS
-#define UNIT__FILEPOS ""
-#else
-#define UNIT__FILEPOS __FILE__ ":" UNIT__X_STR(__LINE__)
-#endif
-
 #define UNIT__SCOPE_BODY(begin, end, Var) for (int Var = (begin, 0); !Var; ++Var, end)
 #define UNIT_SCOPE(begin, end) UNIT__SCOPE_BODY(begin, end, UNIT__X_CONCAT(s__, __COUNTER__))
 
@@ -130,26 +136,27 @@ int unit_main(int argc, char** argv);
 #define UNIT__SUITE(Var, Name, ...) \
     static void Var(void); \
     __attribute__((constructor)) static void UNIT__CONCAT(Var, _ctor)(void) { \
-        static struct unit_test u = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=Var, .type=UNIT__TYPE_CASE, .options=(struct unit__options){ __VA_ARGS__ } }; \
+        static struct unit_test u = (struct unit_test){ .name=Name, .file=__FILE__, .line=__LINE__, .fn=Var, .type=UNIT__TYPE_CASE, .options=(struct unit__options){ __VA_ARGS__ } }; \
         u.next = unit_tests; unit_tests = &u; \
     } \
     static void Var(void)
 
+#define UNIT_SUITE_(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), Name, __VA_ARGS__)
 #define UNIT_SUITE(Name, ...) UNIT__SUITE(UNIT__X_CONCAT(unit__, __COUNTER__), #Name, __VA_ARGS__)
 
 #define UNIT__DECL(Type, Var, Name, ...) \
-    static struct unit_test Var = (struct unit_test){ .name=Name, .filepos=UNIT__FILEPOS, .fn=NULL, .type=Type, .options=(struct unit__options){ __VA_ARGS__ } }; \
+    static struct unit_test Var = (struct unit_test){ .name=Name, .file=__FILE__, .line=__LINE__, .fn=NULL, .type=Type, .options=(struct unit__options){ __VA_ARGS__ } }; \
     UNIT_TRY_SCOPE(unit__begin(&Var), unit__end(&Var))
 
 #define UNIT_DESCRIBE(Name, ...) UNIT__DECL(UNIT__TYPE_CASE, UNIT__X_CONCAT(u__, __COUNTER__), #Name, __VA_ARGS__)
 #define UNIT_TEST(Name, ...) UNIT__DECL(UNIT__TYPE_TEST, UNIT__X_CONCAT(u__, __COUNTER__), "" Name, __VA_ARGS__)
 
-bool unit__prepare_assert(int level, const char* loc, const char* comment, const char* desc);
+bool unit__prepare_assert(int level, const char* file, int line, const char* comment, const char* desc);
 
 // устанавливает читаемое описание проверки, в случае нормального состояния выполняет проверку,
 // если установлено состояние пропускать тесты - НЕ ВЫЧИСЛЯЕТ аргументы для проверки
 #define UNIT__ASSERT_LAZY(Assertion, Level, Comment, Description) \
-if(unit__prepare_assert(Level, UNIT__FILEPOS, Comment, Description)) Assertion
+if(unit__prepare_assert(Level, __FILE__, __LINE__, Comment, Description)) Assertion
 
 #define UNIT__IS_TRUE(_, x) (!!(x))
 #define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (*(x) != '\0'))
