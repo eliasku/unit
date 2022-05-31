@@ -1,8 +1,12 @@
 //#define UNIT_VERBOSE
+//#define UNIT_ANIMATE
 #define UNIT_MAIN
 #include <unit.h>
 
-suite(unit) {
+#define DOCTEST_TEST_CASE TEST_CASE
+#define DOCTEST_TEST_SUITE TEST_CASE
+
+DOCTEST_TEST_SUITE( "unit" ) {
     echo("start");
 
     describe((UNIT_TEST, it, test)) {
@@ -16,11 +20,12 @@ suite(unit) {
         // this is not possible because `test` declares static variable before scope
         //describe("in one-line") it("p");
 
-        describe(unit_cur->skip, .skip=1) {
+        describe(.skip, .skip=1) {
             it("which skip any test inside") require(0, SKIP);
         }
 
-        describe(unit_cur->allow_fail, .allow_fail=1) {
+        // hint for IDE: (struct unit_test){.options.failing}
+        describe(.failing, .failing=1) {
             it("which pass in case of tests failure") {
                 require_eq(2, 2);
                 echo("Next require will fail");
@@ -42,11 +47,11 @@ suite(unit) {
     }
 }
 
-suite(unit, .skip=1) {
+suite(unit skip, .skip=1) {
     it("should skip the whole suite");
 }
 
-suite(unit, .allow_fail=1) {
+suite(unit fail, .failing=1) {
     it("should pass suite in case of failure") {
         require(0);
     }

@@ -1,5 +1,6 @@
 
 #define suite(...) UNIT_SUITE(__VA_ARGS__)
+#define TEST_CASE(...) UNIT_SUITE_(__VA_ARGS__)
 #define describe(...) UNIT_DESCRIBE(__VA_ARGS__)
 #define it(...) UNIT_TEST(__VA_ARGS__)
 #define test(...) UNIT_TEST(__VA_ARGS__)

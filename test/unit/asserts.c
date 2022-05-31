@@ -2,7 +2,7 @@
 #include <unit.h>
 #include <stdlib.h>
 
-suite(unit) {
+suite(asserts) {
     static int a = 5;
 
     it("evaluated only once!") {
@@ -91,6 +91,7 @@ suite(unit) {
 
     it("has c-string support") {
         warn("is not empty");
+        warn_false((const char*)NULL);
         warn_false("");
         warn_ne("dog", "cat");
         warn_eq("bird", "bird");
@@ -100,6 +101,7 @@ suite(unit) {
         warn_lt("alpha", "bird");
 
         check("is not empty");
+        check_false((const char*)NULL);
         check_false("");
         check_ne("dog", "cat");
         check_eq("bird", "bird");
@@ -109,6 +111,7 @@ suite(unit) {
         check_lt("alpha", "bird");
 
         require("is not empty");
+        check_false((const char*)NULL);
         require_false("");
         require_ne("dog", "cat");
         require_eq("bird", "bird");

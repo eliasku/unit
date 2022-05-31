@@ -2,4 +2,4 @@
 "@ekx/unit": patch
 ---
 
-group running by files
+add command-line options

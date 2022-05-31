@@ -32,17 +32,25 @@ suite( you_should_define_the_suite_name_here ) {
 
 ```
 
-<sub>✓ηỉτ</sub>
-
 ![output](docs/output.png)
 
-### Verbose Mode
+## Features and design goals
 
-```c
-#define UNIT_VERBOSE
-/*^^^^^^^^^^^^^^^^*/
-#define UNIT_MAIN
-#include <unit.h>
-```
+### ✓ Main focus and features
+- Written in Pure C: only standard `libc` usage
+- Simplicity and tiny build-size
+- No dynamic memory allocations: only static memory is used for reporting test running infrastructure.
+- Single-header library: easy to integrate
+- Embedded runner & pretty reporter: build self-executable test
+- Abi[lity to mute test code: allow you to write tests for your private implementation right at the end of `impl.c` file
+- Cross-platform: should work for Linux / macOS / Windows 
 
-![verbose](docs/verbose.png)
+### ✕ What you won't find here
+- Cross-compiler support: no `MSVC` support, only `clang` is tested
+- Multithreading and parallel test running
+- Tricky test matchers design
+- Fixtures, `before` / `after` or mocking
+- Crash tests and signal interception
+- Fuzz testing
+
+> In any case, if you have a desire, you can support and contribute! Feel free to ask me any **feature** you need **Thank you for your interest!** 
