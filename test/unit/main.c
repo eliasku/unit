@@ -1,12 +1,7 @@
-//#define UNIT_VERBOSE
-//#define UNIT_ANIMATE
 #define UNIT_MAIN
 #include <unit.h>
 
-#define DOCTEST_TEST_CASE TEST_CASE
-#define DOCTEST_TEST_SUITE TEST_CASE
-
-DOCTEST_TEST_SUITE( "unit" ) {
+suite(unit) {
     echo("start");
 
     describe((UNIT_TEST, it, test)) {

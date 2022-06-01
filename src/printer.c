@@ -105,7 +105,7 @@ const char* unit_spaces[8] = {
 void print_elapsed_time(FILE* f, double elapsed_time) {
     if (elapsed_time >= 0.01) {
         begin_style(f, UNIT_COLOR_DIM);
-        fprintf(f, " (%0.2lf ms)", elapsed_time);
+        fprintf(f, " (%0.2f ms)", elapsed_time);
         end_style(f);
     }
 }
@@ -127,10 +127,10 @@ static void print_label(FILE* f, struct unit_test* node) {
             UNIT_COLOR_LABEL_FAIL " FAIL " UNIT_COLOR_RESET,
     };
     static const char* plain[] = {
-            "[RUNS]",
-            "[PASS]",
-            "[SKIP]",
-            "[FAIL]",
+            "[ RUNS ]",
+            "[ PASS ]",
+            "[ SKIP ]",
+            "[ FAIL ]",
     };
     const int type = node->status;
     const char* lbl = (unit__opts.color ? pretty : plain)[type];
@@ -204,9 +204,9 @@ void printer_def_end(struct unit_test* unit) {
         return;
     }
     // go back to the beginning of line
-    fputc('\n', f);
-    begin_style(f, "\033[1A\033[999D");
-    const char* name = beautify_name(unit->name);
+    // fputc('\n', f);
+    // begin_style(f, "\033[1A\033[999D");
+    fputc('\r', f);
     print_label(f, unit);
     fputc('\n', f);
 
@@ -214,7 +214,7 @@ void printer_def_end(struct unit_test* unit) {
         for (struct unit_test* child = unit->children; child; child = child->next) {
             print_node(child);
         }
-        fputc('\n', stdout);
+        fputc('\n', f);
 
         const long pos = ftell(unit__fails);
         unit__fails_mem[pos] = 0;
@@ -268,7 +268,7 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
     switch (cmd) {
         case UNIT__PRINTER_SETUP:
             fputs(unit__opts.color ? "\n\033[1;30;42m" " ✓ηỉτ " "\033[0;30;46m" " v" UNIT_VERSION " " "\33[m\n\n" :
-                  "\n[unit] v" UNIT_VERSION "\n\n", stdout);
+                  "\n[ unit ] v" UNIT_VERSION "\n\n", stdout);
             print_wait(stdout);
             break;
         case UNIT__PRINTER_BEGIN:
@@ -280,8 +280,10 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
         case UNIT__PRINTER_FAIL:
             printer_def_fail(unit, msg);
             break;
-        default:
-            break;
+            //case UNIT__PRINTER_ASSERTION:
+            //    fputs(icon(unit->assert_status), stdout);
+            //    print_wait(stdout);
+            //    break;
     }
 }
 
@@ -328,7 +330,7 @@ static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
             break;
         case UNIT__PRINTER_ASSERTION: {
             fputs(debug_spaces(0), f);
-            fputs(icon(unit->status), f);
+            fputs(icon(unit->assert_status), f);
 
             const char* cm = unit->assert_comment;
             const char* desc = (cm && cm[0] != '\0') ? cm : unit->assert_desc;
@@ -337,14 +339,12 @@ static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
             fputc('\n', f);
         }
             break;
-        default:
-            break;
     }
 }
 
 static const char* doctest_get_node_type(struct unit_test* node) {
     if (node->parent) {
-        if(node->parent->parent) {
+        if (node->parent->parent) {
             return "SubCase";
         }
         return "TestCase";
@@ -389,8 +389,6 @@ static void print_doctest_xml(int cmd, struct unit_test* node, const char* msg) 
             fputs(unit__spaces(0), f);
             fprintf(f, "</%s>\n", doctest_get_node_type(node));
             break;
-        case UNIT__PRINTER_ECHO:
-            break;
         case UNIT__PRINTER_FAIL:
             fputs(unit__spaces(0), f);
             fprintf(f, "<Expression success=\"%s\" type=\"%s\" filename=\"%s\" line=\"%d\">\n",
@@ -410,10 +408,6 @@ static void print_doctest_xml(int cmd, struct unit_test* node, const char* msg) 
             fprintf(f, "</Expanded>\n");
             fputs(unit__spaces(0), f);
             fprintf(f, "</Expression>\n");
-            break;
-        case UNIT__PRINTER_ASSERTION:
-            break;
-        default:
             break;
     }
 }

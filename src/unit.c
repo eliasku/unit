@@ -222,10 +222,10 @@ bool find_bool_arg(int argc, char** argv, const char* name, const char* alias, b
 #define UNIT__VERBOSE_V 0
 #endif
 
-#ifdef UNIT_NO_COLOR
-#define UNIT__COLOR_V 0
+#ifdef UNIT_NO_COLORS
+#define UNIT__COLORS_V 0
 #else
-#define UNIT__COLOR_V 1
+#define UNIT__COLORS_V 1
 #endif
 
 #ifdef UNIT_ANIMATE
@@ -241,7 +241,7 @@ bool find_bool_arg(int argc, char** argv, const char* name, const char* alias, b
 #endif
 
 int unit_main(int argc, char** argv) {
-    unit__opts.color = find_bool_arg(argc, argv, "color", "c", UNIT__COLOR_V);
+    unit__opts.color = find_bool_arg(argc, argv, "colors", "c", UNIT__COLORS_V);
     unit__opts.verbose = find_bool_arg(argc, argv, "verbose", "v", UNIT__VERBOSE_V);
     unit__opts.quiet = find_bool_arg(argc, argv, "quiet", "q", UNIT__QUIET_V);
     unit__opts.animate = find_bool_arg(argc, argv, "animate", "a", UNIT__ANIMATE_V);
