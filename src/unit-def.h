@@ -67,7 +67,9 @@ struct unit_test {
     const char* name;
     const char* file;
     int line;
+
     void (* fn)(void);
+
     int type;
     struct unit__options options;
 
@@ -98,17 +100,20 @@ struct unit_test {
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
-struct unit_options {
-    bool color;
-    bool verbose;
-    bool quiet;
-    bool animate;
+struct unit_run_options {
+    int color;
+    int trace;
+    int silent;
+    int animate;
+    int doctest_xml;
+    unsigned seed;
 };
 
-extern struct unit_options unit__opts;
+extern struct unit_run_options unit__opts;
 
 struct unit_printer {
     void (* callback)(int cmd, struct unit_test* unit, const char* msg);
+
     struct unit_printer* next;
 };
 
@@ -118,7 +123,7 @@ void unit__end(struct unit_test* unit);
 
 void unit__echo(const char* msg);
 
-int unit_main(int argc, char** argv);
+int unit_main(struct unit_run_options options);
 
 // https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
 #define UNIT__STR(x) #x
@@ -159,9 +164,9 @@ bool unit__prepare_assert(int level, const char* file, int line, const char* com
 if(unit__prepare_assert(Level, __FILE__, __LINE__, Comment, Description)) Assertion
 
 #define UNIT__IS_TRUE(_, x) (!!(x))
-#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (*(x) != '\0'))
+#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (x)[0])
 #define UNIT__CMP(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
-#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a), (b)))
+#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a) ? (a) : "", (b) ? (b) : ""))
 
 #define UNIT__FOR_ASSERTS(macro) \
 macro(int, intmax_t, %jd, UNIT__CMP, UNIT__IS_TRUE) \

@@ -43,6 +43,7 @@ void* vector_get(vector* vec, size_t idx) {
 }
 
 #define UNIT_MAIN
+#define UNIT_DEFAULT_ARGS "--no-colors", "--trace"
 #include <unit.h>
 
 suite(vector) {

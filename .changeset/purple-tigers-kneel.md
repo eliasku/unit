@@ -2,4 +2,4 @@
 "@ekx/unit": patch
 ---
 
-prints (anonymous) instead of empty node name
+add `(anonymous)` label for nodes with empty-string name

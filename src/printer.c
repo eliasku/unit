@@ -103,16 +103,11 @@ const char* unit_spaces[8] = {
 };
 
 void print_elapsed_time(FILE* f, double elapsed_time) {
-    if (elapsed_time >= 0.01) {
+    if (elapsed_time >= 0.00001) {
         begin_style(f, UNIT_COLOR_DIM);
-        fprintf(f, " (%0.2f ms)", elapsed_time);
+        fprintf(f, " (%0.2f ms)", 1000.0 * elapsed_time);
         end_style(f);
     }
-}
-
-void unit__end_line(FILE* f, double elapsed_time) {
-    print_elapsed_time(f, elapsed_time);
-    fputc('\n', f);
 }
 
 static const char* beautify_name(const char* name) {
@@ -186,7 +181,8 @@ static void print_node(struct unit_test* node) {
         fputs(icon(node->status), f);
         print_text(f, name, UNIT_COLOR_DIM);
     }
-    unit__end_line(f, node->elapsed);
+    print_elapsed_time(f, node->elapsed);
+    fputc('\n', f);
     print_wait(f);
     for (struct unit_test* child = node->children; child; child = child->next) {
         print_node(child);
@@ -287,49 +283,49 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
     }
 }
 
-// debug printer
-static int debug_depth = 0;
+// region tracing printer
+static int trace_depth = 0;
 
-static const char* debug_spaces(int delta) {
-    int i = debug_depth + delta;
+static const char* trace_spaces(int delta) {
+    int i = trace_depth + delta;
     if (i < 0) i = 0;
     if (i > 7) i = 7;
     return unit_spaces[i];
 }
 
-static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
+static void printer_tracing(int cmd, struct unit_test* unit, const char* msg) {
     FILE* f = stdout;
     switch (cmd) {
         case UNIT__PRINTER_BEGIN:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             print_text(f, beautify_name(unit->name), UNIT_COLOR_BOLD);
             print_text(f, " {\n", UNIT_COLOR_DIM);
-            ++debug_depth;
+            ++trace_depth;
             break;
         case UNIT__PRINTER_END:
-            --debug_depth;
-            fputs(debug_spaces(0), f);
+            --trace_depth;
+            fputs(trace_spaces(0), f);
             print_text(f, "}\n", UNIT_COLOR_DIM);
             break;
         case UNIT__PRINTER_ECHO:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs(icon(ICON_MSG), f);
             print_text(f, msg, UNIT_COLOR_COMMENT);
             fputc('\n', f);
             break;
         case UNIT__PRINTER_FAIL:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs("    Failed: ", f);
             fputs(beautify_name(unit->name), f);
             fputc('\n', f);
 
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs("    ", f);
             fputs(msg, f);
             fputc('\n', f);
             break;
         case UNIT__PRINTER_ASSERTION: {
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs(icon(unit->assert_status), f);
 
             const char* cm = unit->assert_comment;
@@ -342,6 +338,8 @@ static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
     }
 }
 
+// endregion
+
 static const char* doctest_get_node_type(struct unit_test* node) {
     if (node->parent) {
         if (node->parent->parent) {
@@ -352,7 +350,7 @@ static const char* doctest_get_node_type(struct unit_test* node) {
     return "TestSuite";
 }
 
-static void print_doctest_xml(int cmd, struct unit_test* node, const char* msg) {
+static void printer_xml_doctest(int cmd, struct unit_test* node, const char* msg) {
     FILE* f = stdout;
     switch (cmd) {
         case UNIT__PRINTER_SETUP:

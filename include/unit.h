@@ -32,14 +32,9 @@
  **/
 
 /**
- * Disable colorful output by default
+ * Declare default main arguments
  */
-// #define UNIT_NO_COLORS
-
-/**
- * Select to debug output by default (echo, assertions)
- */
-// #define UNIT_VERBOSE
+// #define UNIT_DEFAULT_ARGS "--no-colors", "--trace"
 #ifndef UNIT_H
 #define UNIT_H
 
@@ -145,7 +140,9 @@ struct unit_test {
     const char* name;
     const char* file;
     int line;
+
     void (* fn)(void);
+
     int type;
     struct unit__options options;
 
@@ -176,17 +173,20 @@ struct unit_test {
 extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
-struct unit_options {
-    bool color;
-    bool verbose;
-    bool quiet;
-    bool animate;
+struct unit_run_options {
+    int color;
+    int trace;
+    int silent;
+    int animate;
+    int doctest_xml;
+    unsigned seed;
 };
 
-extern struct unit_options unit__opts;
+extern struct unit_run_options unit__opts;
 
 struct unit_printer {
     void (* callback)(int cmd, struct unit_test* unit, const char* msg);
+
     struct unit_printer* next;
 };
 
@@ -196,7 +196,7 @@ void unit__end(struct unit_test* unit);
 
 void unit__echo(const char* msg);
 
-int unit_main(int argc, char** argv);
+int unit_main(struct unit_run_options options);
 
 // https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
 #define UNIT__STR(x) #x
@@ -237,9 +237,9 @@ bool unit__prepare_assert(int level, const char* file, int line, const char* com
 if(unit__prepare_assert(Level, __FILE__, __LINE__, Comment, Description)) Assertion
 
 #define UNIT__IS_TRUE(_, x) (!!(x))
-#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (*(x) != '\0'))
+#define UNIT__IS_NOT_EMPTY_STR(_, x) ((x) && (x)[0])
 #define UNIT__CMP(a, b) ((a) == (b) ? 0 : ((a) > (b) ? 1 : -1))
-#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a), (b)))
+#define UNIT__STRCMP(a, b) ((a) == (b) ? 0 : strcmp((a) ? (a) : "", (b) ? (b) : ""))
 
 #define UNIT__FOR_ASSERTS(macro) \
 macro(int, intmax_t, %jd, UNIT__CMP, UNIT__IS_TRUE) \
@@ -369,15 +369,6 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifdef UNIT_MAIN
-
-int main(int argc, char** argv) {
-    srand(time(NULL));
-    return unit_main(argc, argv);
-}
-
-#endif // UNIT_MAIN
 #include <stdio.h>
 
 #ifdef _WIN32
@@ -524,16 +515,11 @@ const char* unit_spaces[8] = {
 };
 
 void print_elapsed_time(FILE* f, double elapsed_time) {
-    if (elapsed_time >= 0.01) {
+    if (elapsed_time >= 0.00001) {
         begin_style(f, UNIT_COLOR_DIM);
-        fprintf(f, " (%0.2f ms)", elapsed_time);
+        fprintf(f, " (%0.2f ms)", 1000.0 * elapsed_time);
         end_style(f);
     }
-}
-
-void unit__end_line(FILE* f, double elapsed_time) {
-    print_elapsed_time(f, elapsed_time);
-    fputc('\n', f);
 }
 
 static const char* beautify_name(const char* name) {
@@ -607,7 +593,8 @@ static void print_node(struct unit_test* node) {
         fputs(icon(node->status), f);
         print_text(f, name, UNIT_COLOR_DIM);
     }
-    unit__end_line(f, node->elapsed);
+    print_elapsed_time(f, node->elapsed);
+    fputc('\n', f);
     print_wait(f);
     for (struct unit_test* child = node->children; child; child = child->next) {
         print_node(child);
@@ -708,49 +695,49 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
     }
 }
 
-// debug printer
-static int debug_depth = 0;
+// region tracing printer
+static int trace_depth = 0;
 
-static const char* debug_spaces(int delta) {
-    int i = debug_depth + delta;
+static const char* trace_spaces(int delta) {
+    int i = trace_depth + delta;
     if (i < 0) i = 0;
     if (i > 7) i = 7;
     return unit_spaces[i];
 }
 
-static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
+static void printer_tracing(int cmd, struct unit_test* unit, const char* msg) {
     FILE* f = stdout;
     switch (cmd) {
         case UNIT__PRINTER_BEGIN:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             print_text(f, beautify_name(unit->name), UNIT_COLOR_BOLD);
             print_text(f, " {\n", UNIT_COLOR_DIM);
-            ++debug_depth;
+            ++trace_depth;
             break;
         case UNIT__PRINTER_END:
-            --debug_depth;
-            fputs(debug_spaces(0), f);
+            --trace_depth;
+            fputs(trace_spaces(0), f);
             print_text(f, "}\n", UNIT_COLOR_DIM);
             break;
         case UNIT__PRINTER_ECHO:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs(icon(ICON_MSG), f);
             print_text(f, msg, UNIT_COLOR_COMMENT);
             fputc('\n', f);
             break;
         case UNIT__PRINTER_FAIL:
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs("    Failed: ", f);
             fputs(beautify_name(unit->name), f);
             fputc('\n', f);
 
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs("    ", f);
             fputs(msg, f);
             fputc('\n', f);
             break;
         case UNIT__PRINTER_ASSERTION: {
-            fputs(debug_spaces(0), f);
+            fputs(trace_spaces(0), f);
             fputs(icon(unit->assert_status), f);
 
             const char* cm = unit->assert_comment;
@@ -763,6 +750,8 @@ static void printer_debug(int cmd, struct unit_test* unit, const char* msg) {
     }
 }
 
+// endregion
+
 static const char* doctest_get_node_type(struct unit_test* node) {
     if (node->parent) {
         if (node->parent->parent) {
@@ -773,7 +762,7 @@ static const char* doctest_get_node_type(struct unit_test* node) {
     return "TestSuite";
 }
 
-static void print_doctest_xml(int cmd, struct unit_test* node, const char* msg) {
+static void printer_xml_doctest(int cmd, struct unit_test* node, const char* msg) {
     FILE* f = stdout;
     switch (cmd) {
         case UNIT__PRINTER_SETUP:
@@ -937,16 +926,12 @@ UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
 
 double unit__time(double prev) {
     struct timespec ts = {0};
-    bool success = false;
 #ifdef _WIN32
-    success = timespec_get(&ts, TIME_UTC) == TIME_UTC;
+    timespec_get(&ts, TIME_UTC) == TIME_UTC;
 #else
-    success = clock_gettime(CLOCK_REALTIME, &ts) == 0;
+    clock_gettime(CLOCK_REALTIME, &ts) == 0;
 #endif
-    if (!success) {
-        return 0.0;
-    }
-    return (double) ts.tv_sec * 1000.0 + (double) ts.tv_nsec / 1000000.0 - prev;
+    return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0 - prev;
 }
 
 // region начало конец запуска каждого теста
@@ -974,11 +959,14 @@ static void add_child(struct unit_test* parent, struct unit_test* child) {
 
 int unit__begin(struct unit_test* unit) {
     const bool run = !unit->options.skip;
-    unit->t0 = unit__time(0.0);
     unit->state = 0;
     unit->status = run ? UNIT_STATUS_RUN : UNIT_STATUS_SKIPPED;
     unit->assert_desc = NULL;
-    add_child(unit_cur, unit);
+    unit->passed = 0;
+    unit->total = 0;
+    if (!unit->parent) {
+        add_child(unit_cur, unit);
+    }
     unit_cur = unit;
     if (run && unit->type == UNIT__TYPE_TEST) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
@@ -986,10 +974,12 @@ int unit__begin(struct unit_test* unit) {
         }
     }
     UNIT__EACH_PRINTER(BEGIN, unit, 0);
+    unit->t0 = unit__time(0.0);
     return run;
 }
 
 void unit__end(struct unit_test* unit) {
+    unit->elapsed = unit__time(unit->t0);
     if (unit->status == UNIT_STATUS_RUN) {
         unit->status = UNIT_STATUS_SUCCESS;
         if (unit->type == UNIT__TYPE_TEST) {
@@ -998,7 +988,6 @@ void unit__end(struct unit_test* unit) {
             }
         }
     }
-    unit->elapsed = unit__time(unit->t0);
     UNIT__EACH_PRINTER(END, unit, 0);
     unit_cur = unit->parent;
 }
@@ -1007,75 +996,21 @@ void unit__echo(const char* msg) {
     UNIT__EACH_PRINTER(ECHO, unit_cur, msg);
 }
 
-struct unit_options unit__opts;
+struct unit_run_options unit__opts;
 
-bool find_bool_arg(int argc, char** argv, const char* name, const char* alias, bool def) {
-    for (int i = 0; i < argc; ++i) {
-        const char* v = argv[i];
-        if (v) {
-            if (v[0] == '-') {
-                ++v;
-                if (strstr(v, alias) == v) {
-                    return true;
-                } else if (v[0] == '-') {
-                    ++v;
-                    bool invert = false;
-                    if (strstr(v, "no-") == v) {
-                        v += 3;
-                        invert = true;
-                    }
-                    if (strstr(v, name) == v) {
-                        return !invert;
-                    }
-                }
-            }
-        }
+static void unit__init_printers(void) {
+    static struct unit_printer printer;
+    printer.callback = unit__opts.trace ? printer_tracing : printer_def;
+    if (unit__opts.doctest_xml) {
+        printer.callback = printer_xml_doctest;
     }
-    return def;
+    unit__printers = unit__opts.silent ? NULL : &printer;
 }
 
-#ifdef UNIT_VERBOSE
-#define UNIT__VERBOSE_V 1
-#else
-#define UNIT__VERBOSE_V 0
-#endif
-
-#ifdef UNIT_NO_COLORS
-#define UNIT__COLORS_V 0
-#else
-#define UNIT__COLORS_V 1
-#endif
-
-#ifdef UNIT_ANIMATE
-#define UNIT__ANIMATE_V 1
-#else
-#define UNIT__ANIMATE_V 0
-#endif
-
-#ifdef UNIT_QUIET
-#define UNIT__QUIET_V 1
-#else
-#define UNIT__QUIET_V 0
-#endif
-
-int unit_main(int argc, char** argv) {
-    unit__opts.color = find_bool_arg(argc, argv, "colors", "c", UNIT__COLORS_V);
-    unit__opts.verbose = find_bool_arg(argc, argv, "verbose", "v", UNIT__VERBOSE_V);
-    unit__opts.quiet = find_bool_arg(argc, argv, "quiet", "q", UNIT__QUIET_V);
-    unit__opts.animate = find_bool_arg(argc, argv, "animate", "a", UNIT__ANIMATE_V);
-
-    static struct unit_printer printer;
-    if (!unit__opts.quiet) {
-        printer.callback = unit__opts.verbose ? printer_debug : printer_def;
-        unit__printers = &printer;
-    }
-
-    // hack to trick CLion we are DocTest library tests
-    for (int i = 0; i < argc; ++i) {
-        if (argv[i] && strstr(argv[i], "-r=xml")) {
-            printer.callback = print_doctest_xml;
-        }
-    }
+int unit_main(struct unit_run_options options) {
+    unit__opts = options;
+    srand(options.seed);
+    unit__init_printers();
 
     UNIT__EACH_PRINTER(SETUP, 0, 0);
 
@@ -1097,6 +1032,67 @@ int unit_main(int argc, char** argv) {
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef UNIT_MAIN
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+static void find_bool_arg(int argc, const char** argv, int* var, const char* name, const char* alias) {
+    for (int i = 0; i < argc; ++i) {
+        const char* v = argv[i];
+        if (v && v[0] == '-') {
+            ++v;
+            if (alias && alias[0] && strstr(v, alias) == v) {
+                *var = true;
+                return;
+            } else if (name && name[0] && v[0] == '-') {
+                ++v;
+                bool invert = false;
+                if (strstr(v, "no-") == v) {
+                    v += 3;
+                    invert = true;
+                }
+                if (strstr(v, name) == v) {
+                    *var = invert ? 0 : 1;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+static void unit__parse_args(int argc, const char** argv, struct unit_run_options* out_options) {
+    find_bool_arg(argc, argv, &out_options->color, "colors", "c");
+    find_bool_arg(argc, argv, &out_options->trace, "trace", "t");
+    find_bool_arg(argc, argv, &out_options->silent, "silent", "s");
+    find_bool_arg(argc, argv, &out_options->animate, "animate", "a");
+    for (int i = 0; i < argc; ++i) {
+        // hack to trick CLion we are DocTest library tests
+        const char* v = argv[i];
+        if (v && v[0] && strstr(argv[i], "-r=xml")) {
+            out_options->doctest_xml = 1;
+        }
+    }
+}
+
+int main(int argc, const char** argv) {
+    struct unit_run_options options = {1, 0, 0, 0, 0, time(NULL)};
+#ifdef UNIT_DEFAULT_ARGS
+    static const char* cargv[] = { UNIT_DEFAULT_ARGS };
+    static const int cargc = sizeof(cargv) / sizeof(cargv[0]);
+    unit__parse_args(cargc, cargv, &options);
+#endif
+    unit__parse_args(argc, argv, &options);
+    return unit_main(options);
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+
+#endif // UNIT_MAIN
 
 #endif // !UNIT__IMPLEMENTED
 

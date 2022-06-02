@@ -32,14 +32,9 @@
  **/
 
 /**
- * Disable colorful output by default
+ * Declare default main arguments
  */
-// #define UNIT_NO_COLORS
-
-/**
- * Select to debug output by default (echo, assertions)
- */
-// #define UNIT_VERBOSE
+// #define UNIT_DEFAULT_ARGS "--no-colors", "--trace"
 
 #include "unit-def.h"
 

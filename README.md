@@ -22,10 +22,12 @@ Compile executable with `-D UNIT_TESTING` to enable tests
 #define UNIT_MAIN
 #include <unit.h>
 
-suite( you_should_define_the_suite_name_here ) {
-  describe( optionally_add_the_subject ) {
-    it( "describe behaviour" ) {
-      check("use warn / check / require functions");
+suite(_optional_suite_name_) {
+  describe(_optional_subcase_name_) {
+    it("describe test behaviour") {
+      warn("use warn");
+      check("use check");
+      require("use require");
     }
   }
 }

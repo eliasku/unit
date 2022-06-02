@@ -5,15 +5,6 @@
 extern "C" {
 #endif
 
-#ifdef UNIT_MAIN
-
-int main(int argc, char** argv) {
-    srand(time(NULL));
-    return unit_main(argc, argv);
-}
-
-#endif // UNIT_MAIN
-
 #include "printer.c"
 
 struct unit_test* unit_tests = NULL;
@@ -119,16 +110,12 @@ UNIT__FOR_ASSERTS(UNIT__IMPLEMENT_ASSERT)
 
 double unit__time(double prev) {
     struct timespec ts = {0};
-    bool success = false;
 #ifdef _WIN32
-    success = timespec_get(&ts, TIME_UTC) == TIME_UTC;
+    timespec_get(&ts, TIME_UTC) == TIME_UTC;
 #else
-    success = clock_gettime(CLOCK_REALTIME, &ts) == 0;
+    clock_gettime(CLOCK_REALTIME, &ts) == 0;
 #endif
-    if (!success) {
-        return 0.0;
-    }
-    return (double) ts.tv_sec * 1000.0 + (double) ts.tv_nsec / 1000000.0 - prev;
+    return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0 - prev;
 }
 
 // region начало конец запуска каждого теста
@@ -156,11 +143,14 @@ static void add_child(struct unit_test* parent, struct unit_test* child) {
 
 int unit__begin(struct unit_test* unit) {
     const bool run = !unit->options.skip;
-    unit->t0 = unit__time(0.0);
     unit->state = 0;
     unit->status = run ? UNIT_STATUS_RUN : UNIT_STATUS_SKIPPED;
     unit->assert_desc = NULL;
-    add_child(unit_cur, unit);
+    unit->passed = 0;
+    unit->total = 0;
+    if (!unit->parent) {
+        add_child(unit_cur, unit);
+    }
     unit_cur = unit;
     if (run && unit->type == UNIT__TYPE_TEST) {
         for (struct unit_test* u = unit_cur; u; u = u->parent) {
@@ -168,10 +158,12 @@ int unit__begin(struct unit_test* unit) {
         }
     }
     UNIT__EACH_PRINTER(BEGIN, unit, 0);
+    unit->t0 = unit__time(0.0);
     return run;
 }
 
 void unit__end(struct unit_test* unit) {
+    unit->elapsed = unit__time(unit->t0);
     if (unit->status == UNIT_STATUS_RUN) {
         unit->status = UNIT_STATUS_SUCCESS;
         if (unit->type == UNIT__TYPE_TEST) {
@@ -180,7 +172,6 @@ void unit__end(struct unit_test* unit) {
             }
         }
     }
-    unit->elapsed = unit__time(unit->t0);
     UNIT__EACH_PRINTER(END, unit, 0);
     unit_cur = unit->parent;
 }
@@ -189,75 +180,21 @@ void unit__echo(const char* msg) {
     UNIT__EACH_PRINTER(ECHO, unit_cur, msg);
 }
 
-struct unit_options unit__opts;
+struct unit_run_options unit__opts;
 
-bool find_bool_arg(int argc, char** argv, const char* name, const char* alias, bool def) {
-    for (int i = 0; i < argc; ++i) {
-        const char* v = argv[i];
-        if (v) {
-            if (v[0] == '-') {
-                ++v;
-                if (strstr(v, alias) == v) {
-                    return true;
-                } else if (v[0] == '-') {
-                    ++v;
-                    bool invert = false;
-                    if (strstr(v, "no-") == v) {
-                        v += 3;
-                        invert = true;
-                    }
-                    if (strstr(v, name) == v) {
-                        return !invert;
-                    }
-                }
-            }
-        }
+static void unit__init_printers(void) {
+    static struct unit_printer printer;
+    printer.callback = unit__opts.trace ? printer_tracing : printer_def;
+    if (unit__opts.doctest_xml) {
+        printer.callback = printer_xml_doctest;
     }
-    return def;
+    unit__printers = unit__opts.silent ? NULL : &printer;
 }
 
-#ifdef UNIT_VERBOSE
-#define UNIT__VERBOSE_V 1
-#else
-#define UNIT__VERBOSE_V 0
-#endif
-
-#ifdef UNIT_NO_COLORS
-#define UNIT__COLORS_V 0
-#else
-#define UNIT__COLORS_V 1
-#endif
-
-#ifdef UNIT_ANIMATE
-#define UNIT__ANIMATE_V 1
-#else
-#define UNIT__ANIMATE_V 0
-#endif
-
-#ifdef UNIT_QUIET
-#define UNIT__QUIET_V 1
-#else
-#define UNIT__QUIET_V 0
-#endif
-
-int unit_main(int argc, char** argv) {
-    unit__opts.color = find_bool_arg(argc, argv, "colors", "c", UNIT__COLORS_V);
-    unit__opts.verbose = find_bool_arg(argc, argv, "verbose", "v", UNIT__VERBOSE_V);
-    unit__opts.quiet = find_bool_arg(argc, argv, "quiet", "q", UNIT__QUIET_V);
-    unit__opts.animate = find_bool_arg(argc, argv, "animate", "a", UNIT__ANIMATE_V);
-
-    static struct unit_printer printer;
-    if (!unit__opts.quiet) {
-        printer.callback = unit__opts.verbose ? printer_debug : printer_def;
-        unit__printers = &printer;
-    }
-
-    // hack to trick CLion we are DocTest library tests
-    for (int i = 0; i < argc; ++i) {
-        if (argv[i] && strstr(argv[i], "-r=xml")) {
-            printer.callback = print_doctest_xml;
-        }
-    }
+int unit_main(struct unit_run_options options) {
+    unit__opts = options;
+    srand(options.seed);
+    unit__init_printers();
 
     UNIT__EACH_PRINTER(SETUP, 0, 0);
 
@@ -279,5 +216,11 @@ int unit_main(int argc, char** argv) {
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef UNIT_MAIN
+
+#include "unit-main.c"
+
+#endif // UNIT_MAIN
 
 #endif // !UNIT__IMPLEMENTED
