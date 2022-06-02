@@ -1,5 +1,5 @@
 /**
- * unit.h - v0.0.3 - Simple header-only testing library for C - https://github.com/eliasku/unit
+ * unit.h - v0.0.4 - Simple header-only testing library for C - https://github.com/eliasku/unit
  *
  * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
  *
@@ -349,7 +349,7 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #ifdef UNIT_TESTING
 
-#define UNIT_VERSION "0.0.3"
+#define UNIT_VERSION "0.0.4"
 
 /**
  * @deprecated use UNIT_IMPLEMENT or UNIT_MAIN options
@@ -928,9 +928,9 @@ double unit__time(double prev) {
     struct timespec ts = {0};
 #ifndef UNIT_NO_TIME
 #ifdef _WIN32
-    timespec_get(&ts, TIME_UTC) == TIME_UTC;
+    timespec_get(&ts, TIME_UTC);
 #else // _WIN32
-    clock_gettime(CLOCK_REALTIME, &ts) == 0;
+    clock_gettime(CLOCK_REALTIME, &ts);
 #endif // !_WIN32
 #endif // !UNIT_NO_TIME
     return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0 - prev;

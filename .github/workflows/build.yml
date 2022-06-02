@@ -86,9 +86,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build header-only library
-        run: yarn run build
-
       - name: Install changesets
         run: yarn add --dev @changesets/cli
 
@@ -96,6 +93,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
+          # this step should build library with new version
           publish: yarn run release
           version: yarn run version
         env:

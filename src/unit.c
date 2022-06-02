@@ -112,9 +112,9 @@ double unit__time(double prev) {
     struct timespec ts = {0};
 #ifndef UNIT_NO_TIME
 #ifdef _WIN32
-    timespec_get(&ts, TIME_UTC) == TIME_UTC;
+    timespec_get(&ts, TIME_UTC);
 #else // _WIN32
-    clock_gettime(CLOCK_REALTIME, &ts) == 0;
+    clock_gettime(CLOCK_REALTIME, &ts);
 #endif // !_WIN32
 #endif // !UNIT_NO_TIME
     return (double) ts.tv_sec + (double) ts.tv_nsec / 1000000000.0 - prev;
