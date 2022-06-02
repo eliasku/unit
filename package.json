@@ -3,8 +3,8 @@
   "version": "0.0.4",
   "description": "Simple header-only testing library for C",
   "scripts": {
-    "release": "yarn run build && changeset publish",
-    "version": "changeset version && yarn && git add yarn.lock",
+    "release": "changeset publish",
+    "version": "changeset version && yarn && git add yarn.lock && yarn run build && git add include/unit.h",
     "build": "node scripts/amalgamate.js",
     "test": "node scripts/test.js"
   },
