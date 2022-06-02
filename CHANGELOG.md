@@ -1,5 +1,11 @@
 # @ekx/unit
 
+## 0.0.5
+
+### Patch Changes
+
+- 7388751: Fix release script, rebuild library with new version 0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
