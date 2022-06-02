@@ -12,7 +12,7 @@
 [![Build](https://github.com/eliasku/unit/actions/workflows/build.yml/badge.svg)](https://github.com/eliasku/unit/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/eliasku/unit/branch/master/graph/badge.svg?token=NFTrtCHQ2r)](https://codecov.io/gh/eliasku/unit)
 
-![screencast](docs/screencast.gif)
+![output](docs/output.gif)
 
 ## Example
 
@@ -33,8 +33,6 @@ suite(_optional_suite_name_) {
 }
 
 ```
-
-![output](docs/output.png)
 
 ## Features and design goals
 
