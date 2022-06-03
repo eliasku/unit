@@ -1,5 +1,12 @@
 # @ekx/unit
 
+## 0.0.6
+
+### Patch Changes
+
+- 5636fc4: change all macro identifiers to UPPER_CASE style #16
+- 5636fc4: fix disabled mode compilation
+
 ## 0.0.5
 
 ### Patch Changes
