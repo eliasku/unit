@@ -1,5 +1,5 @@
 /**
- * unit.h - v0.0.5 - Simple header-only testing library for C - https://github.com/eliasku/unit
+ * unit.h - v0.0.6 - Simple header-only testing library for C - https://github.com/eliasku/unit
  *
  * Minimal example. Compile executable with `-D UNIT_TESTING` to enable tests.
  *
@@ -351,7 +351,7 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #ifdef UNIT_TESTING
 
-#define UNIT_VERSION "0.0.5"
+#define UNIT_VERSION "0.0.6"
 
 /**
  * @deprecated use UNIT_IMPLEMENT or UNIT_MAIN options
