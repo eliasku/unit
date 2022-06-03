@@ -8,57 +8,57 @@
 #endif
 
 // TODO: fix for Windows
-suite(files, .skip=IS_WINDOWS) {
+SUITE(files, .skip=IS_WINDOWS) {
 
-    echo("hello io");
+    ECHO("hello io");
 
-    it("opens files") {
+    IT("opens files") {
         FILE* f = fopen("/dev/zero", "r");
-        require_ne(f, NULL);
+        REQUIRE_NE(f, NULL);
         fclose(f);
     }
 
-    it("writes to files") {
+    IT("writes to files") {
         FILE* f = fopen("testfile", "w");
-        require_ne(f, NULL);
+        REQUIRE_NE(f, NULL);
 
         char str[] = "hello there";
-        require_eq(fwrite(str, 1, sizeof(str), f), sizeof(str));
+        REQUIRE_EQ(fwrite(str, 1, sizeof(str), f), sizeof(str));
 
         fclose(f);
         remove("testfile");
     }
 
-    describe(fread) {
-        it("reads 10 bytes") {
+    DESCRIBE(fread) {
+        IT("reads 10 bytes") {
             FILE* f = fopen("/dev/zero", "r");
-            require_ne(f, NULL);
+            REQUIRE_NE(f, NULL);
 
             char buf[10];
-            require_eq(fread(buf, 1, 10, f), 10);
+            REQUIRE_EQ(fread(buf, 1, 10, f), 10);
 
             fclose(f);
         }
 
-        it("reads 20 bytes") {
+        IT("reads 20 bytes") {
             FILE* f = fopen("/dev/zero", "r");
-            require_ne(f, NULL);
+            REQUIRE_NE(f, NULL);
 
             char buf[20];
-            require_eq(fread(buf, 1, 20, f), 20);
+            REQUIRE_EQ(fread(buf, 1, 20, f), 20);
 
             fclose(f);
         }
 
-        it("handle scope in for-loop") {
+        IT("handle scope in for-loop") {
             size_t executed_times = 0;
             char buf[10];
             for (FILE* f = fopen("/dev/zero", "r"); f; fclose(f), f = NULL) {
                 size_t bytes_read = fread(buf, 1, 10, f);
                 ++executed_times;
-                require_eq(bytes_read, 10);
+                REQUIRE_EQ(bytes_read, 10);
             }
-            require_eq(executed_times, 1);
+            REQUIRE_EQ(executed_times, 1);
         }
     }
 }

@@ -48,69 +48,69 @@ void* vector_get(vector* vec, size_t idx) {
 //#define UNIT_DEFAULT_ARGS "--no-colors", "--trace"
 #include <unit.h>
 
-suite(vector) {
+SUITE(vector) {
     vector vec;
 
-    it("breaks the rules of math (to demonstrate failed tests)", .failing = true) {
-        require_eq(1, 2, binary op fail);
-        echo("Oh, noes!");
+    IT("breaks the rules of math (to demonstrate failed tests)", .failing = true) {
+        REQUIRE_EQ(1, 2, binary op fail);
+        ECHO("Oh, noes!");
         // these checks will be skipped after previous fail
-        require_eq(vector_get(&vec, 101), NULL);
-        require_eq(vec.elem_size, 53);
+        REQUIRE_EQ(vector_get(&vec, 101), NULL);
+        REQUIRE_EQ(vec.elem_size, 53);
     }
 
-    it("inits vectors correctly") {
+    IT("inits vectors correctly") {
         vector_init(&vec, 53);
 
-        require_eq(vec.size, 0);
-        require_eq(vec.count, 0);
-        require_eq(vec.elem_size, 53);
-        require_eq(vec.size, 0);
+        REQUIRE_EQ(vec.size, 0);
+        REQUIRE_EQ(vec.count, 0);
+        REQUIRE_EQ(vec.elem_size, 53);
+        REQUIRE_EQ(vec.size, 0);
 
         vector_free(&vec);
     }
 
-#define it_vec(name) it(name) UNIT_SCOPE( \
+#define IT_VEC(name) IT(name) UNIT_SCOPE( \
 /* before: */ vector_init(&vec, sizeof(int)), \
 /* after:  */ vector_free(&vec) \
 )
 
-    it_vec("allocates vectors based on elem_size") {
+    IT_VEC("allocates vectors based on elem_size") {
             vector_alloc(&vec, 10);
-            require_eq(vec.elem_size, sizeof(int));
-            require_eq(vec.count, 0);
-            require(vec.size >= 10);
+            REQUIRE_EQ(vec.elem_size, sizeof(int));
+            REQUIRE_EQ(vec.count, 0);
+            REQUIRE(vec.size >= 10);
             /* Not an assert, but will cause valgrind to complain
              * if not enough memory was allocated */
             memset(vec.elems, 0xff, 10 * vec.elem_size);
         }
 
-    describe(vector_set) {
-        it_vec("sets values inside of the allocated range") {
+    DESCRIBE(vector_set) {
+        IT_VEC("sets values inside of the allocated range") {
                 vector_alloc(&vec, 2);
                 int el = 10;
                 vector_set(&vec, 1, &el);
-                require_eq(*(int*) ((char*) vec.elems + sizeof(int)), 10);
+                REQUIRE_EQ(*(int*) ((char*) vec.elems + sizeof(int)), 10);
             }
 
-        it_vec("allocates space when setting values outside the allocated range") {
+        IT_VEC("allocates space when setting values outside the allocated range") {
                 int el = 10;
                 vector_set(&vec, 50, &el);
-                require_eq(*(int*) ((char*) vec.elems + (sizeof(int) * 50)), 10);
+                REQUIRE_EQ(*(int*) ((char*) vec.elems + (sizeof(int) * 50)), 10);
             }
     }
 
-    describe(vector_get) {
-        it_vec("gets values inside the allocated range") {
+    DESCRIBE(vector_get) {
+        IT_VEC("gets values inside the allocated range") {
                 int el = 500;
                 vector_set(&vec, 10, &el);
-                require_eq(*(int*) vector_get(&vec, 10), 500);
+                REQUIRE_EQ(*(int*) vector_get(&vec, 10), 500);
             }
 
-        it_vec("returns NULL when trying to access values outside the allocated range") {
+        IT_VEC("returns NULL when trying to access values outside the allocated range") {
                 int el = 10;
                 vector_set(&vec, 100, &el);
-                require_eq(vector_get(&vec, 101), NULL);
+                REQUIRE_EQ(vector_get(&vec, 101), NULL);
             }
     }
 }

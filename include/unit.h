@@ -40,42 +40,45 @@
 
 #ifndef UNIT_TESTING
 
+#define UNIT__NOOP (void)(0)
 #define UNIT__CONCAT_(a, b) a ## b
 #define UNIT__CONCAT(a, b) UNIT__CONCAT_(a, b)
-#define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__CONCAT(Name, __COUNTER__)(void)
+#define UNIT_SUITE(Name, ...) __attribute__((unused)) static void UNIT__CONCAT(unit__, __COUNTER__)(void)
 #define UNIT_DESCRIBE(Name, ...) while(0)
 #define UNIT_TEST(Description, ...) while(0)
 
-#define UNIT_ECHO(...)
+#define UNIT_ECHO(...) UNIT__NOOP
 
-#define UNIT_WARN(x, ...)
-#define UNIT_WARN_FALSE(x, ...)
-#define UNIT_WARN_EQ(a, b, ...)
-#define UNIT_WARN_NE(a, b, ...)
-#define UNIT_WARN_GT(a, b, ...)
-#define UNIT_WARN_GE(a, b, ...)
-#define UNIT_WARN_LT(a, b, ...)
-#define UNIT_WARN_LE(a, b, ...)
+#define UNIT_WARN(x, ...) UNIT__NOOP
+#define UNIT_WARN_FALSE(x, ...) UNIT__NOOP
+#define UNIT_WARN_EQ(a, b, ...) UNIT__NOOP
+#define UNIT_WARN_NE(a, b, ...) UNIT__NOOP
+#define UNIT_WARN_GT(a, b, ...) UNIT__NOOP
+#define UNIT_WARN_GE(a, b, ...) UNIT__NOOP
+#define UNIT_WARN_LT(a, b, ...) UNIT__NOOP
+#define UNIT_WARN_LE(a, b, ...) UNIT__NOOP
 
-#define UNIT_CHECK(x, ...)
-#define UNIT_CHECK_FALSE(x, ...)
-#define UNIT_CHECK_EQ(a, b, ...)
-#define UNIT_CHECK_NE(a, b, ...)
-#define UNIT_CHECK_GT(a, b, ...)
-#define UNIT_CHECK_GE(a, b, ...)
-#define UNIT_CHECK_LT(a, b, ...)
-#define UNIT_CHECK_LE(a, b, ...)
+#define UNIT_CHECK(x, ...) UNIT__NOOP
+#define UNIT_CHECK_FALSE(x, ...) UNIT__NOOP
+#define UNIT_CHECK_EQ(a, b, ...) UNIT__NOOP
+#define UNIT_CHECK_NE(a, b, ...) UNIT__NOOP
+#define UNIT_CHECK_GT(a, b, ...) UNIT__NOOP
+#define UNIT_CHECK_GE(a, b, ...) UNIT__NOOP
+#define UNIT_CHECK_LT(a, b, ...) UNIT__NOOP
+#define UNIT_CHECK_LE(a, b, ...) UNIT__NOOP
 
-#define UNIT_REQUIRE(x, ...)
-#define UNIT_REQUIRE_FALSE(x, ...)
-#define UNIT_REQUIRE_EQ(a, b, ...)
-#define UNIT_REQUIRE_NE(a, b, ...)
-#define UNIT_REQUIRE_GT(a, b, ...)
-#define UNIT_REQUIRE_GE(a, b, ...)
-#define UNIT_REQUIRE_LT(a, b, ...)
-#define UNIT_REQUIRE_LE(a, b, ...)
+#define UNIT_REQUIRE(x, ...) UNIT__NOOP
+#define UNIT_REQUIRE_FALSE(x, ...) UNIT__NOOP
+#define UNIT_REQUIRE_EQ(a, b, ...) UNIT__NOOP
+#define UNIT_REQUIRE_NE(a, b, ...) UNIT__NOOP
+#define UNIT_REQUIRE_GT(a, b, ...) UNIT__NOOP
+#define UNIT_REQUIRE_GE(a, b, ...) UNIT__NOOP
+#define UNIT_REQUIRE_LT(a, b, ...) UNIT__NOOP
+#define UNIT_REQUIRE_LE(a, b, ...) UNIT__NOOP
 
-#define UNIT_SKIP()
+#define UNIT_SKIP(...) UNIT__NOOP
+
+#define unit_main(...) (0)
 
 
 #else
@@ -307,41 +310,40 @@ UNIT__FOR_ASSERTS(UNIT__DEFINE_ASSERT)
 
 #endif // UNIT_TESTING
 
-#define suite(...) UNIT_SUITE(__VA_ARGS__)
-#define TEST_CASE(...) UNIT_SUITE_(__VA_ARGS__)
-#define describe(...) UNIT_DESCRIBE(__VA_ARGS__)
-#define it(...) UNIT_TEST(__VA_ARGS__)
-#define test(...) UNIT_TEST(__VA_ARGS__)
-#define echo(...) UNIT_ECHO(__VA_ARGS__)
+#define SUITE(...) UNIT_SUITE(__VA_ARGS__)
+#define DESCRIBE(...) UNIT_DESCRIBE(__VA_ARGS__)
+#define IT(...) UNIT_TEST(__VA_ARGS__)
+#define TEST(...) UNIT_TEST(__VA_ARGS__)
+#define ECHO(...) UNIT_ECHO(__VA_ARGS__)
 
-#define warn(...)       UNIT_WARN(__VA_ARGS__)
-#define warn_false(...) UNIT_WARN_FALSE(__VA_ARGS__)
-#define warn_eq(...)    UNIT_WARN_EQ(__VA_ARGS__)
-#define warn_ne(...)    UNIT_WARN_NE(__VA_ARGS__)
-#define warn_gt(...)    UNIT_WARN_GT(__VA_ARGS__)
-#define warn_ge(...)    UNIT_WARN_GE(__VA_ARGS__)
-#define warn_lt(...)    UNIT_WARN_LT(__VA_ARGS__)
-#define warn_le(...)    UNIT_WARN_LE(__VA_ARGS__)
+#define WARN(...)       UNIT_WARN(__VA_ARGS__)
+#define WARN_FALSE(...) UNIT_WARN_FALSE(__VA_ARGS__)
+#define WARN_EQ(...)    UNIT_WARN_EQ(__VA_ARGS__)
+#define WARN_NE(...)    UNIT_WARN_NE(__VA_ARGS__)
+#define WARN_GT(...)    UNIT_WARN_GT(__VA_ARGS__)
+#define WARN_GE(...)    UNIT_WARN_GE(__VA_ARGS__)
+#define WARN_LT(...)    UNIT_WARN_LT(__VA_ARGS__)
+#define WARN_LE(...)    UNIT_WARN_LE(__VA_ARGS__)
 
-#define check(...)       UNIT_CHECK(__VA_ARGS__)
-#define check_false(...) UNIT_CHECK_FALSE(__VA_ARGS__)
-#define check_eq(...)    UNIT_CHECK_EQ(__VA_ARGS__)
-#define check_ne(...)    UNIT_CHECK_NE(__VA_ARGS__)
-#define check_gt(...)    UNIT_CHECK_GT(__VA_ARGS__)
-#define check_ge(...)    UNIT_CHECK_GE(__VA_ARGS__)
-#define check_lt(...)    UNIT_CHECK_LT(__VA_ARGS__)
-#define check_le(...)    UNIT_CHECK_LE(__VA_ARGS__)
+#define CHECK(...)       UNIT_CHECK(__VA_ARGS__)
+#define CHECK_FALSE(...) UNIT_CHECK_FALSE(__VA_ARGS__)
+#define CHECK_EQ(...)    UNIT_CHECK_EQ(__VA_ARGS__)
+#define CHECK_NE(...)    UNIT_CHECK_NE(__VA_ARGS__)
+#define CHECK_GT(...)    UNIT_CHECK_GT(__VA_ARGS__)
+#define CHECK_GE(...)    UNIT_CHECK_GE(__VA_ARGS__)
+#define CHECK_LT(...)    UNIT_CHECK_LT(__VA_ARGS__)
+#define CHECK_LE(...)    UNIT_CHECK_LE(__VA_ARGS__)
 
-#define require(...)       UNIT_REQUIRE(__VA_ARGS__)
-#define require_false(...) UNIT_REQUIRE_FALSE(__VA_ARGS__)
-#define require_eq(...)    UNIT_REQUIRE_EQ(__VA_ARGS__)
-#define require_ne(...)    UNIT_REQUIRE_NE(__VA_ARGS__)
-#define require_gt(...)    UNIT_REQUIRE_GT(__VA_ARGS__)
-#define require_ge(...)    UNIT_REQUIRE_GE(__VA_ARGS__)
-#define require_lt(...)    UNIT_REQUIRE_LT(__VA_ARGS__)
-#define require_le(...)    UNIT_REQUIRE_LE(__VA_ARGS__)
+#define REQUIRE(...)       UNIT_REQUIRE(__VA_ARGS__)
+#define REQUIRE_FALSE(...) UNIT_REQUIRE_FALSE(__VA_ARGS__)
+#define REQUIRE_EQ(...)    UNIT_REQUIRE_EQ(__VA_ARGS__)
+#define REQUIRE_NE(...)    UNIT_REQUIRE_NE(__VA_ARGS__)
+#define REQUIRE_GT(...)    UNIT_REQUIRE_GT(__VA_ARGS__)
+#define REQUIRE_GE(...)    UNIT_REQUIRE_GE(__VA_ARGS__)
+#define REQUIRE_LT(...)    UNIT_REQUIRE_LT(__VA_ARGS__)
+#define REQUIRE_LE(...)    UNIT_REQUIRE_LE(__VA_ARGS__)
 
-#define skip(...) UNIT_SKIP(__VA_ARGS__)
+#define SKIP(...) UNIT_SKIP(__VA_ARGS__)
 
 
 #endif // UNIT_H
@@ -1079,7 +1081,7 @@ static void unit__parse_args(int argc, const char** argv, struct unit_run_option
 }
 
 int main(int argc, const char** argv) {
-    struct unit_run_options options = {1, 0, 0, 0, 0, time(NULL)};
+    struct unit_run_options options = {1, 0, 0, 0, 0, (unsigned)time(NULL)};
 #ifdef UNIT_DEFAULT_ARGS
     static const char* cargv[] = { UNIT_DEFAULT_ARGS };
     static const int cargc = sizeof(cargv) / sizeof(cargv[0]);

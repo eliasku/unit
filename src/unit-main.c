@@ -41,7 +41,7 @@ static void unit__parse_args(int argc, const char** argv, struct unit_run_option
 }
 
 int main(int argc, const char** argv) {
-    struct unit_run_options options = {1, 0, 0, 0, 0, time(NULL)};
+    struct unit_run_options options = {1, 0, 0, 0, 0, (unsigned)time(NULL)};
 #ifdef UNIT_DEFAULT_ARGS
     static const char* cargv[] = { UNIT_DEFAULT_ARGS };
     static const int cargc = sizeof(cargv) / sizeof(cargv[0]);

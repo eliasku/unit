@@ -14,53 +14,53 @@ int main(int argc, const char** argv) {
     return result;
 }
 
-suite(unit) {
-    echo("start");
+SUITE(unit) {
+    ECHO("start");
 
-    describe((UNIT_TEST, it, test)) {
-        it("without body");
-        it("in one-line") check_gt(1, 0), echo("wow");
-        it("could be skipped", .skip=1) require(0, skipped);
+    DESCRIBE(UNIT_TEST) {
+        IT("without body");
+        IT("in one-line") CHECK_GT(1, 0), ECHO("wow");
+        IT("could be skipped", .skip=1) REQUIRE(0, skipped);
     }
 
-    describe((UNIT_DESCRIBE, describe)) {
-        describe();
+    DESCRIBE(UNIT_DESCRIBE) {
+        DESCRIBE();
         // this is not possible because `test` declares static variable before scope
         //describe("in one-line") it("p");
 
-        describe(.skip, .skip=1) {
-            it("which skip any test inside") require(0, SKIP);
+        DESCRIBE(.skip, .skip=1) {
+            IT("which skip any test inside") REQUIRE(0, skip);
         }
 
         // hint for IDE: (struct unit_test){.options.failing}
-        describe(.failing, .failing=1) {
-            it("which pass in case of tests failure") {
-                require_eq(2, 2);
-                echo("Next require will fail");
-                require_eq(1, 0);
-                echo("Execution actually continues,");
-                echo("but another checks will be ignored after fail.");
-                require(0);
-                require(NULL);
+        DESCRIBE(.failing, .failing=1) {
+            IT("which pass in case of tests failure") {
+                REQUIRE_EQ(2, 2);
+                ECHO("Next require will fail");
+                REQUIRE_EQ(1, 0);
+                ECHO("Execution actually continues,");
+                ECHO("but another checks will be ignored after fail.");
+                REQUIRE(0);
+                REQUIRE(NULL);
             }
         }
     }
 
-    describe(skip) {
-        it("start skipping checks in the middle") {
-            require(1, OK);
-            skip();
-            require(0, SKIP);
+    DESCRIBE(SKIP) {
+        IT("start skipping checks in the middle") {
+            REQUIRE(1, OK);
+            SKIP();
+            REQUIRE(0, SKIP);
         }
     }
 }
 
-suite(unit skip, .skip=1) {
-    it("should skip the whole suite");
+SUITE(unit skip, .skip=1) {
+    IT("should skip the whole suite");
 }
 
-suite(unit fail, .failing=1) {
-    it("should pass suite in case of failure") {
-        require(0);
+SUITE(unit fail, .failing=1) {
+    IT("should pass suite in case of failure") {
+        REQUIRE(0);
     }
 }

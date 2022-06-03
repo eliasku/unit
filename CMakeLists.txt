@@ -16,9 +16,6 @@ if (UNIT_LIBRARY_PROJECT)
     add_subdirectory(src)
 endif ()
 
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=enum -fsanitize=signed-integer-overflow -fsanitize=null -fsanitize=unsigned-integer-overflow -fsanitize=return -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=alignment")
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -g -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=enum -fsanitize=signed-integer-overflow -fsanitize=null -fsanitize=unsigned-integer-overflow -fsanitize=return -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=alignment")
-
 if (UNIT_LIBRARY_PROJECT)
     enable_testing()
 

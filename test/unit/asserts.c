@@ -2,209 +2,209 @@
 #include <unit.h>
 #include <stdlib.h>
 
-suite(asserts) {
-    it("evaluated only once!") {
+SUITE(asserts) {
+    IT("evaluated only once!") {
         int a = 5;
 
-        require_eq(++a, 6);
-        require(++a == 7);
-        check_eq(++a, 8);
-        check(++a == 9);
-        warn_eq(++a, 10);
-        warn(++a == 11);
+        REQUIRE_EQ(++a, 6);
+        REQUIRE(++a == 7);
+        CHECK_EQ(++a, 8);
+        CHECK(++a == 9);
+        WARN_EQ(++a, 10);
+        WARN(++a == 11);
 
         // дальше мы пропускаем проверки, они будут помечены в отчёте как пропущенные,
         // но они не должны выполнять проверяемые выражения внутри, значит переменная не должна больше изменяться
-        skip();
-        warn_eq(++a, 12);
-        warn(++a == 13);
-        check_eq(++a, 14);
-        check(++a == 15);
-        require_eq(++a, 16);
-        require(++a == 17);
+        SKIP();
+        WARN_EQ(++a, 12);
+        WARN(++a == 13);
+        CHECK_EQ(++a, 14);
+        CHECK(++a == 15);
+        REQUIRE_EQ(++a, 16);
+        REQUIRE(++a == 17);
 
         // этот код выполняется в любом случае,
         if (a != 11) exit(EXIT_FAILURE);
     }
 
-    it("has int support") {
+    IT("has int support") {
         int b = -10;
         int zero = 0;
 
-        warn(b);
-        warn_false(zero);
-        warn_ne(b, 99);
-        warn_eq(b, -10);
-        warn_ge(b, -10);
-        warn_gt(b, -11);
-        warn_le(b, -10);
-        warn_lt(b, -9);
+        WARN(b);
+        WARN_FALSE(zero);
+        WARN_NE(b, 99);
+        WARN_EQ(b, -10);
+        WARN_GE(b, -10);
+        WARN_GT(b, -11);
+        WARN_LE(b, -10);
+        WARN_LT(b, -9);
 
-        check(b);
-        check_false(zero);
-        check_ne(b, 99);
-        check_eq(b, -10);
-        check_ge(b, -10);
-        check_gt(b, -11);
-        check_le(b, -10);
-        check_lt(b, -9);
+        CHECK(b);
+        CHECK_FALSE(zero);
+        CHECK_NE(b, 99);
+        CHECK_EQ(b, -10);
+        CHECK_GE(b, -10);
+        CHECK_GT(b, -11);
+        CHECK_LE(b, -10);
+        CHECK_LT(b, -9);
 
-        require(b);
-        require_false(zero);
-        require_ne(b, 99);
-        require_eq(b, -10);
-        require_ge(b, -10);
-        require_gt(b, -11);
-        require_le(b, -10);
-        require_lt(b, -9);
+        REQUIRE(b);
+        REQUIRE_FALSE(zero);
+        REQUIRE_NE(b, 99);
+        REQUIRE_EQ(b, -10);
+        REQUIRE_GE(b, -10);
+        REQUIRE_GT(b, -11);
+        REQUIRE_LE(b, -10);
+        REQUIRE_LT(b, -9);
     }
 
-    it("has uint support") {
+    IT("has uint support") {
         unsigned int b = 10;
         unsigned int zero = 0;
 
-        warn(b);
-        warn_false(zero);
-        warn_ne(b, 99u);
-        warn_eq(b, 10u);
-        warn_ge(b, 10u);
-        warn_gt(b, 9u);
-        warn_le(b, 10u);
-        warn_lt(b, 11u);
+        WARN(b);
+        WARN_FALSE(zero);
+        WARN_NE(b, 99u);
+        WARN_EQ(b, 10u);
+        WARN_GE(b, 10u);
+        WARN_GT(b, 9u);
+        WARN_LE(b, 10u);
+        WARN_LT(b, 11u);
 
-        check(b);
-        check_false(zero);
-        check_ne(b, 99u);
-        check_eq(b, 10u);
-        check_ge(b, 10u);
-        check_gt(b, 9u);
-        check_le(b, 10u);
-        check_lt(b, 11u);
+        CHECK(b);
+        CHECK_FALSE(zero);
+        CHECK_NE(b, 99u);
+        CHECK_EQ(b, 10u);
+        CHECK_GE(b, 10u);
+        CHECK_GT(b, 9u);
+        CHECK_LE(b, 10u);
+        CHECK_LT(b, 11u);
 
-        require(b);
-        require_false(zero);
-        require_ne(b, 99u);
-        require_eq(b, 10u);
-        require_ge(b, 10u);
-        require_gt(b, 9u);
-        require_le(b, 10u);
-        require_lt(b, 11u);
+        REQUIRE(b);
+        REQUIRE_FALSE(zero);
+        REQUIRE_NE(b, 99u);
+        REQUIRE_EQ(b, 10u);
+        REQUIRE_GE(b, 10u);
+        REQUIRE_GT(b, 9u);
+        REQUIRE_LE(b, 10u);
+        REQUIRE_LT(b, 11u);
     }
 
-    it("has float support") {
+    IT("has float support") {
         double b = 10.01;
         double zero = 0.0;
 
-        warn(b);
-        warn_false(zero);
-        warn_ne(b, 99.0);
-        warn_eq(b, 10.01);
-        warn_ge(b, 10.01);
-        warn_gt(b, 9.0);
-        warn_le(b, 10.01);
-        warn_lt(b, 11.0);
+        WARN(b);
+        WARN_FALSE(zero);
+        WARN_NE(b, 99.0);
+        WARN_EQ(b, 10.01);
+        WARN_GE(b, 10.01);
+        WARN_GT(b, 9.0);
+        WARN_LE(b, 10.01);
+        WARN_LT(b, 11.0);
 
-        check(b == 10.01);
-        check_false(b != 10.01);
-        check_ne(b, 99.0);
-        check_eq(b, 10.01);
-        check_ge(b, 10.01);
-        check_gt(b, 9.0);
-        check_le(b, 10.01);
-        check_lt(b, 11.0);
+        CHECK(b == 10.01);
+        CHECK_FALSE(b != 10.01);
+        CHECK_NE(b, 99.0);
+        CHECK_EQ(b, 10.01);
+        CHECK_GE(b, 10.01);
+        CHECK_GT(b, 9.0);
+        CHECK_LE(b, 10.01);
+        CHECK_LT(b, 11.0);
 
-        require(b == 10.01);
-        require_false(b != 10.01);
-        require_ne(b, 99.0);
-        require_eq(b, 10.01);
-        require_ge(b, 10.01);
-        require_gt(b, 9.0);
-        require_le(b, 10.01);
-        require_lt(b, 11.0);
+        REQUIRE(b == 10.01);
+        REQUIRE_FALSE(b != 10.01);
+        REQUIRE_NE(b, 99.0);
+        REQUIRE_EQ(b, 10.01);
+        REQUIRE_GE(b, 10.01);
+        REQUIRE_GT(b, 9.0);
+        REQUIRE_LE(b, 10.01);
+        REQUIRE_LT(b, 11.0);
     }
 
-    it("has c-string support") {
-        warn("is not empty");
-        warn_false((const char*) NULL);
-        warn_false("");
-        warn_ne("dog", "cat");
-        warn_eq("bird", "bird");
-        warn_ge("bird", "alpha");
-        warn_gt("bird", "alpha");
-        warn_le("alpha", "bird");
-        warn_lt("alpha", "bird");
+    IT("has c-string support") {
+        WARN("is not empty");
+        WARN_FALSE((const char*) NULL);
+        WARN_FALSE("");
+        WARN_NE("dog", "cat");
+        WARN_EQ("bird", "bird");
+        WARN_GE("bird", "alpha");
+        WARN_GT("bird", "alpha");
+        WARN_LE("alpha", "bird");
+        WARN_LT("alpha", "bird");
 
-        check("is not empty");
-        check_false((const char*) NULL);
-        check_false("");
-        check_ne("dog", "cat");
-        check_eq("bird", "bird");
-        check_ge("bird", "alpha");
-        check_gt("bird", "alpha");
-        check_le("alpha", "bird");
-        check_lt("alpha", "bird");
+        CHECK("is not empty");
+        CHECK_FALSE((const char*) NULL);
+        CHECK_FALSE("");
+        CHECK_NE("dog", "cat");
+        CHECK_EQ("bird", "bird");
+        CHECK_GE("bird", "alpha");
+        CHECK_GT("bird", "alpha");
+        CHECK_LE("alpha", "bird");
+        CHECK_LT("alpha", "bird");
 
-        require("is not empty");
-        require_false((const char*) NULL);
-        require_false("");
-        require_ne("dog", "cat");
-        require_eq("bird", "bird");
-        require_ge("bird", "alpha");
-        require_gt("bird", "alpha");
-        require_le("alpha", "bird");
-        require_lt("alpha", "bird");
+        REQUIRE("is not empty");
+        REQUIRE_FALSE((const char*) NULL);
+        REQUIRE_FALSE("");
+        REQUIRE_NE("dog", "cat");
+        REQUIRE_EQ("bird", "bird");
+        REQUIRE_GE("bird", "alpha");
+        REQUIRE_GT("bird", "alpha");
+        REQUIRE_LE("alpha", "bird");
+        REQUIRE_LT("alpha", "bird");
     }
 
-    it("accept NULL c-string as empty string") {
-        require_false((const char*) NULL);
-        require_gt("alpha", (const char*) NULL);
-        require_lt((const char*) NULL, "omega");
-        require_eq(NULL, "");
-        require_ne(NULL, "beta");
-        require_le(NULL, "");
-        require_ge(NULL, "");
+    IT("accept NULL c-string as empty string") {
+        REQUIRE_FALSE((const char*) NULL);
+        REQUIRE_GT("alpha", (const char*) NULL);
+        REQUIRE_LT((const char*) NULL, "omega");
+        REQUIRE_EQ(NULL, "");
+        REQUIRE_NE(NULL, "beta");
+        REQUIRE_LE(NULL, "");
+        REQUIRE_GE(NULL, "");
     }
 
-    it("compares pointer type") {
+    IT("compares pointer type") {
         int v1 = 1; // 0
         int v2 = 2; // 1
-        require(v1);
-        require(v2);
         const void* ptr1 = &v1;
         const void* ptr2 = &v2;
-        require(ptr1);
-        require(ptr2);
-        require_lt(ptr2, ptr1);
-        require_gt(ptr1, ptr2);
-        require_le(NULL, ptr2);
-        require_ge(ptr2, NULL);
+        REQUIRE(v1);
+        REQUIRE(v2);
+        REQUIRE(ptr1);
+        REQUIRE(ptr2);
+        REQUIRE_LT(ptr2, ptr1);
+        REQUIRE_GT(ptr1, ptr2);
+        REQUIRE_LE(NULL, ptr2);
+        REQUIRE_GE(ptr2, NULL);
     }
 
-    it("has void* support") {
+    IT("has void* support") {
         const void* zero = NULL;
         const void* ptr = &zero;
-        require_false(zero);
-        require(ptr);
-        require_eq(zero, NULL);
-        require_ne(ptr, zero);
+        REQUIRE_FALSE(zero);
+        REQUIRE(ptr);
+        REQUIRE_EQ(zero, NULL);
+        REQUIRE_NE(ptr, zero);
     }
 
-    it("fail cases", .failing=1) {
+    IT("fail cases", .failing=1) {
         const void* zero = NULL;
         const char* str = NULL;
         unsigned u = 2;
         int s = -2;
         double f = 0.0;
 
-        check(zero);
-        check_eq(zero, (const void*) &str);
-        check(str);
-        check_eq(str, "string");
-        check_false(u);
-        check_le(u, 0u);
-        check_false(s);
-        check_gt(s, 0);
-        check(f);
-        check_gt(f, 0.0);
+        CHECK(zero);
+        CHECK_EQ(zero, (const void*) &str);
+        CHECK(str);
+        CHECK_EQ(str, "string");
+        CHECK_FALSE(u);
+        CHECK_LE(u, 0u);
+        CHECK_FALSE(s);
+        CHECK_GT(s, 0);
+        CHECK(f);
+        CHECK_GT(f, 0.0);
     }
 }

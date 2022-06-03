@@ -20,4 +20,4 @@ void vector_set(vector* vec, size_t idx, void* elem);
 
 void* vector_get(vector* vec, size_t idx);
 
-#endif
+#endif // VECTOR_H

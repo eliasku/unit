@@ -5,7 +5,7 @@
 [![Download](https://img.shields.io/badge/Download%20%20-unit.h-lightgreen.svg)](https://raw.githubusercontent.com/eliasku/unit/master/include/unit.h)
 [![Documentation](https://img.shields.io/badge/docs-latest-white)](http://unit.rtfd.io/)
 [![Twitter](https://img.shields.io/twitter/follow/eliaskuvoice.svg?style=flat&label=Follow&logoColor=white&color=1da1f2&logo=twitter)](https://twitter.com/eliaskuvoice)
-[![Try it online](https://img.shields.io/badge/Try%20it-online-orange.svg)](https://godbolt.org/z/Mn74qe57b)
+[![Try it online](https://img.shields.io/badge/Try%20it-online-orange.svg)](https://godbolt.org/z/17vjqsnca)
 
 ## 🥼 Tiny unit testing library for C language 🥼
 
@@ -22,12 +22,12 @@ Compile executable with `-D UNIT_TESTING` to enable tests
 #define UNIT_MAIN
 #include <unit.h>
 
-suite(_optional_suite_name_) {
-  describe(_optional_subcase_name_) {
-    it("describe test behaviour") {
-      warn("use warn");
-      check("use check");
-      require("use require");
+SUITE( suite name ) {
+  DESCRIBE( subcase name ) {
+    IT("is test behaviour") {
+      WARN("use WARN_* to print failed assumptions");
+      CHECK("use CHECK_* to continue execute assertions on fail");
+      REQUIRE("use REQUIRE_* to skip next assertions on fail");
     }
   }
 }
@@ -37,12 +37,12 @@ suite(_optional_suite_name_) {
 ## Features and design goals
 
 ### ✓ Main focus and features
-- Written in Pure C: only standard `libc` usage
+- Written in Pure C: only standard `libc` is used
 - Simplicity and tiny build-size
 - No dynamic memory allocations: only static memory is used for reporting test running infrastructure.
 - Single-header library: easy to integrate
 - Embedded runner & pretty reporter: build self-executable test
-- Abi[lity to mute test code: allow you to write tests for your private implementation right at the end of `impl.c` file
+- Disable test code: allow you to write tests for your private implementation right at the end of `impl.c` file
 - Cross-platform: should work for Linux / macOS / Windows 
 
 ### ✕ What you won't find here
