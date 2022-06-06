@@ -43,7 +43,7 @@ SUITE( suite name ) {
 - Single-header library: easy to integrate
 - Embedded runner & pretty reporter: build self-executable test
 - Disable test code: allow you to write tests for your private implementation right at the end of `impl.c` file
-- Cross-platform: should work for Linux / macOS / Windows 
+- Cross-platform: should work for Linux / macOS / Windows / WebAssembly
 
 ### ✕ What you won't find here
 - Cross-compiler support: no `MSVC` support, only `clang` is tested
