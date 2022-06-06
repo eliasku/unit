@@ -1,18 +1,18 @@
 #include <unit.h>
 #include <stdio.h>
 
-#ifdef _WIN32
-#define IS_WINDOWS 1
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
+#define NO_UNIX_DEV_ZERO 1
 #else
-#define IS_WINDOWS 0
+#define NO_UNIX_DEV_ZERO 0
 #endif
 
-// TODO: fix for Windows
-SUITE(files, .skip=IS_WINDOWS) {
+// TODO: fix for Windows, Emscripten
+SUITE(files) {
 
     ECHO("hello io");
 
-    IT("opens files") {
+    IT("opens files", .skip=NO_UNIX_DEV_ZERO) {
         FILE* f = fopen("/dev/zero", "r");
         REQUIRE_NE(f, NULL);
         fclose(f);
@@ -29,7 +29,7 @@ SUITE(files, .skip=IS_WINDOWS) {
         remove("testfile");
     }
 
-    DESCRIBE(fread) {
+    DESCRIBE(fread, .skip=NO_UNIX_DEV_ZERO) {
         IT("reads 10 bytes") {
             FILE* f = fopen("/dev/zero", "r");
             REQUIRE_NE(f, NULL);
