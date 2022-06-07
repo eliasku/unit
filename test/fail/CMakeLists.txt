@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(test-fail C CXX)
+project(test-fail C)
 
 add_executable(${PROJECT_NAME} main.c)
 target_compile_definitions(${PROJECT_NAME} PUBLIC UNIT_TESTING)

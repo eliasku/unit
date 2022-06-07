@@ -1,4 +1,5 @@
 #define UNIT_IMPLEMENT
+#define UNIT__SELF_TEST
 
 #include <unit.h>
 
@@ -6,11 +7,14 @@ int main(int argc, const char** argv) {
     (void) argc;
     (void) argv;
     int result = 0;
-    result |= unit_main((struct unit_run_options){0, 0, 0, 0, 0});
-    result |= unit_main((struct unit_run_options){1, 1, 0, 0, 0});
-    result |= unit_main((struct unit_run_options){0, 0, 1, 0, 0});
-    result |= unit_main((struct unit_run_options){1, 0, 0, 1, 0});
-    result |= unit_main((struct unit_run_options){0, 0, 0, 0, 1});
+    result |= unit_main((struct unit_run_options){1});
+    result |= unit_main((struct unit_run_options){0, 1});
+    result |= unit_main((struct unit_run_options){0, 0, 1});
+    result |= unit_main((struct unit_run_options){0, 0, 0, 0, 0, 0, 0, 0});
+    result |= unit_main((struct unit_run_options){0, 0, 0, 1, 1, 0, 0, 0});
+    result |= unit_main((struct unit_run_options){0, 0, 0, 0, 0, 1, 0, 0});
+    result |= unit_main((struct unit_run_options){0, 0, 0, 1, 0, 0, 1, 0});
+    result |= unit_main((struct unit_run_options){0, 0, 0, 0, 0, 0, 0, 1});
     return result;
 }
 

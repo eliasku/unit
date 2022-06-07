@@ -34,9 +34,21 @@ SUITE( suite name ) {
 
 ```
 
+## Command-line options
+
+- `--version`, `-v`: Prints the version of `unit` library
+- `--help`, `-h`: Prints usage help message
+- `--list`, `-l`: Prints all available tests
+- `--animate`, `-a`: Simulate waits for printing messages, just for making fancy printing animation
+- `--ascii`: Don't use colors and fancy unicode symbols in the output
+- `--short-filenames`, `-S`: Use only basename for displaying file-pos information
+- `--quiet`, `-q`: Disables all output
+- `-r=xml`: Special switch prints XML report in DocTest-friendly format (for CLion test run configuration)
+
 ## Features and design goals
 
 ### ✓ Main focus and features
+
 - Written in Pure C: only standard `libc` is used
 - Simplicity and tiny build-size
 - No dynamic memory allocations: only static memory is used for reporting test running infrastructure.
@@ -46,6 +58,7 @@ SUITE( suite name ) {
 - Cross-platform: should work for Linux / macOS / Windows / WebAssembly
 
 ### ✕ What you won't find here
+
 - Cross-compiler support: no `MSVC` support, only `clang` is tested
 - Multithreading and parallel test running
 - Tricky test matchers design
@@ -53,4 +66,5 @@ SUITE( suite name ) {
 - Crash tests and signal interception
 - Fuzz testing
 
-> In any case, if you have a desire, you can support and contribute! Feel free to ask me any **feature** you need **Thank you for your interest!** 
+> In any case, if you have a desire, you can support and contribute! Feel free to ask me any **feature** you need **
+> Thank you for your interest!** 

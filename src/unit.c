@@ -190,10 +190,45 @@ static void unit__init_printers(void) {
     if (unit__opts.doctest_xml) {
         printer.callback = printer_xml_doctest;
     }
-    unit__printers = unit__opts.silent ? NULL : &printer;
+    unit__printers = unit__opts.quiet ? NULL : &printer;
+}
+
+#define UNIT__MSG_VERSION "unit v" UNIT_VERSION "\n"
+#define UNIT__MSG_USAGE "usage: %s OPTIONS\n" \
+"options:\n" \
+"  --version or -v: Prints the version of `unit` library\n" \
+"  --help or -h: Prints usage help message\n" \
+"  --list or -l: Prints all available tests\n" \
+"  --ascii: Don't use colors and fancy unicode symbols in the output\n" \
+"  --quiet or -q: Disables all output\n" \
+"  --short-filenames or -S: Use only basename for displaying file-pos information\n" \
+"  -r=xml: Special switch prints XML report in DocTest-friendly format (for CLion test run configuration)\n" \
+"  --animate or -a: Simulate waits for printing messages, just for making fancy printing animation\n"
+
+static int unit__cmd(struct unit_run_options options) {
+    if (options.version) {
+        fputs(UNIT__MSG_VERSION, stdout);
+        return 0;
+    }
+    if (options.help) {
+        fprintf(stdout, UNIT__MSG_USAGE, options.program);
+        return 0;
+    }
+    if (options.list) {
+        for (struct unit_test* suite = unit_tests; suite; suite = suite->next) {
+            fputs(beautify_name(suite->name), stdout);
+            fputs("\n", stdout);
+        }
+        return 0;
+    }
+    return 1;
 }
 
 int unit_main(struct unit_run_options options) {
+    if (!unit__cmd(options)) {
+        return 0;
+    }
+
     unit__opts = options;
     srand(options.seed);
     unit__init_printers();
@@ -213,16 +248,66 @@ int unit_main(struct unit_run_options options) {
     return failed ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
-// endregion
-
-#ifdef __cplusplus
+static void find_bool_arg(int argc, const char** argv, int* var, const char* name, const char* alias) {
+    for (int i = 0; i < argc; ++i) {
+        const char* v = argv[i];
+        if (v && v[0] == '-') {
+            ++v;
+            if (alias && alias[0] && strstr(v, alias) == v) {
+                *var = 1;
+                return;
+            } else if (name && name[0] && v[0] == '-') {
+                ++v;
+                if (strstr(v, name) == v) {
+                    *var = 1;
+                    return;
+                }
+            }
+        }
+    }
 }
+
+static void unit__parse_args(int argc, const char** argv, struct unit_run_options* out_options) {
+    find_bool_arg(argc, argv, &out_options->version, "version", "v");
+    find_bool_arg(argc, argv, &out_options->help, "help", "h");
+    find_bool_arg(argc, argv, &out_options->list, "list", "l");
+    find_bool_arg(argc, argv, &out_options->ascii, "ascii", NULL);
+    find_bool_arg(argc, argv, &out_options->trace, "trace", "t");
+    find_bool_arg(argc, argv, &out_options->quiet, "quiet", "q");
+    find_bool_arg(argc, argv, &out_options->animate, "animate", "a");
+    find_bool_arg(argc, argv, &out_options->short_filenames, "short-filenames", "S");
+    // hack to trick CLion we are DocTest library tests
+    find_bool_arg(argc, argv, &out_options->doctest_xml, NULL, "r=xml");
+}
+
+static void unit__setup_args(int argc, const char** argv, struct unit_run_options* out_options) {
+    *out_options = (struct unit_run_options) {0};
+    out_options->seed = (unsigned) time(NULL);
+    out_options->program = argc > 0 ? short_filename(argv[0]) : "<unit>";
+#ifdef UNIT_DEFAULT_ARGS
+    static const char* cargv[] = { UNIT_DEFAULT_ARGS };
+    static const int cargc = sizeof(cargv) / sizeof(cargv[0]);
+    unit__parse_args(cargc, cargv, out_options);
 #endif
+    unit__parse_args(argc, argv, out_options);
+}
+
+// endregion
 
 #ifdef UNIT_MAIN
 
 #include "unit-main.c"
 
 #endif // UNIT_MAIN
+
+#ifdef UNIT__SELF_TEST
+
+#include "self-test.c"
+
+#endif // UNIT__SELF_TEST
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !UNIT__IMPLEMENTED

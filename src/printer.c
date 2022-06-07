@@ -33,7 +33,7 @@ enum {
 };
 
 static const char* icon(int type) {
-    static const char* pretty[] = {
+    static const char* fancy[] = {
             UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "▶ " UNIT_COLOR_RESET,
             UNIT_COLOR_BOLD UNIT_COLOR_SUCCESS "✓ " UNIT_COLOR_RESET,
             UNIT_COLOR_BOLD UNIT_COLOR_DIM "∅ " UNIT_COLOR_RESET,
@@ -41,7 +41,7 @@ static const char* icon(int type) {
             UNIT_COLOR_BOLD UNIT_COLOR_FAIL "● " UNIT_COLOR_RESET,
             UNIT_COLOR_BOLD UNIT_COLOR_COMMENT "» " UNIT_COLOR_RESET,
     };
-    static const char* plain[] = {
+    static const char* ascii[] = {
             "> ",
             "+ ",
             ". ",
@@ -49,7 +49,7 @@ static const char* icon(int type) {
             "! ",
             "# ",
     };
-    return unit__opts.color ? pretty[type] : plain[type];
+    return unit__opts.ascii ? ascii[type] : fancy[type];
 }
 
 // region reporting
@@ -71,13 +71,13 @@ static void print_wait(FILE* f) {
 }
 
 void begin_style(FILE* file, const char* style) {
-    if (style && unit__opts.color) {
+    if (style && !unit__opts.ascii) {
         fputs(style, file);
     }
 }
 
 void end_style(FILE* file) {
-    if (unit__opts.color) {
+    if (!unit__opts.ascii) {
         fputs(UNIT_COLOR_RESET, file);
     }
 }
@@ -91,7 +91,7 @@ void print_text(FILE* file, const char* text, const char* style) {
 static char unit__fails_mem[4096];
 static FILE* unit__fails = 0;
 
-const char* unit_spaces[8] = {
+static const char* unit_spaces[8] = {
         "",
         "  ",
         "    ",
@@ -102,6 +102,13 @@ const char* unit_spaces[8] = {
         "              "
 };
 
+static const char* get_spaces(int n) {
+    const int len = sizeof unit_spaces / sizeof unit_spaces[0];
+    if(n < 0) n = 0;
+    if(n >= len) n = len - 1;
+    return unit_spaces[n];
+}
+
 void print_elapsed_time(FILE* f, double elapsed_time) {
     if (elapsed_time >= 0.00001) {
         begin_style(f, UNIT_COLOR_DIM);
@@ -111,24 +118,38 @@ void print_elapsed_time(FILE* f, double elapsed_time) {
 }
 
 static const char* beautify_name(const char* name) {
-    return UNIT__IS_NOT_EMPTY_STR(_, name) ? name : "(anonymous)";
+    return (name && name[0]) ? name : "(anonymous)";
+}
+
+static const char* short_filename(const char* file) {
+    if (file) {
+        const char* p = strrchr(file, '/');
+        if (p) {
+            return p + 1;
+        }
+    }
+    return file;
+}
+
+static const char* beautify_filename(const char* file) {
+    return unit__opts.short_filenames ? short_filename(file) : file;
 }
 
 static void print_label(FILE* f, struct unit_test* node) {
-    static const char* pretty[] = {
+    static const char* fancy[] = {
             UNIT_COLOR_LABEL_RUNS " RUNS " UNIT_COLOR_RESET,
             UNIT_COLOR_LABEL_PASS " PASS " UNIT_COLOR_RESET,
             UNIT_COLOR_LABEL_SKIP " SKIP " UNIT_COLOR_RESET,
             UNIT_COLOR_LABEL_FAIL " FAIL " UNIT_COLOR_RESET,
     };
-    static const char* plain[] = {
+    static const char* ascii[] = {
             "[ RUNS ]",
             "[ PASS ]",
             "[ SKIP ]",
             "[ FAIL ]",
     };
     const int type = node->status;
-    const char* lbl = (unit__opts.color ? pretty : plain)[type];
+    const char* lbl = (unit__opts.ascii ? ascii : fancy)[type];
 
     fputs(lbl, f);
     fputc(' ', f);
@@ -160,10 +181,7 @@ void printer_def_begin(struct unit_test* unit) {
 int def_depth = 0;
 
 const char* unit__spaces(int delta) {
-    int i = def_depth + delta;
-    if (i < 0) i = 0;
-    if (i > 7) i = 7;
-    return unit_spaces[i];
+    return get_spaces(def_depth + delta);
 }
 
 static void print_node(struct unit_test* node) {
@@ -225,7 +243,7 @@ void printer_def_end(struct unit_test* unit) {
 static void unit__breadcrumbs(FILE* f, struct unit_test* test) {
     if (test->parent) {
         unit__breadcrumbs(f, test->parent);
-        print_text(f, unit__opts.color ? " → " : " > ", UNIT_COLOR_BOLD UNIT_COLOR_DIM);
+        print_text(f, unit__opts.ascii ? " > " : " → ", UNIT_COLOR_BOLD UNIT_COLOR_DIM);
     }
     print_text(f, beautify_name(test->name), UNIT_COLOR_BOLD UNIT_COLOR_FAIL);
 }
@@ -245,16 +263,14 @@ void printer_def_fail(struct unit_test* unit, const char* msg) {
     fputs(unit_spaces[2], f);
     fputs(msg, f);
     fputc('\n', f);
-#ifndef UNIT_NO_FILEPOS
     if (unit->assert_file) {
         fputs(unit_spaces[2], f);
         print_text(f, "@ ", UNIT_COLOR_COMMENT UNIT_COLOR_DIM UNIT_COLOR_BOLD);
         begin_style(f, UNIT_COLOR_COMMENT UNIT_COLOR_UNDERLINE);
-        fprintf(f, "%s:%d", unit->assert_file, unit->assert_line);
+        fprintf(f, "%s:%d", beautify_filename(unit->assert_file), unit->assert_line);
         end_style(f);
         fputc('\n', f);
     }
-#endif
     fputc('\n', f);
 }
 
@@ -263,8 +279,8 @@ void printer_def_fail(struct unit_test* unit, const char* msg) {
 static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
     switch (cmd) {
         case UNIT__PRINTER_SETUP:
-            fputs(unit__opts.color ? "\n\033[1;30;42m" " ✓ηỉτ " "\033[0;30;46m" " v" UNIT_VERSION " " "\33[m\n\n" :
-                  "\n[ unit ] v" UNIT_VERSION "\n\n", stdout);
+            fputs(unit__opts.ascii ? "\n[ unit ] v" UNIT_VERSION "\n\n" :
+                  "\n\033[1;30;42m" " ✓ηỉτ " "\033[0;30;46m" " v" UNIT_VERSION " " "\33[m\n\n", stdout);
             print_wait(stdout);
             break;
         case UNIT__PRINTER_BEGIN:
@@ -287,10 +303,7 @@ static void printer_def(int cmd, struct unit_test* unit, const char* msg) {
 static int trace_depth = 0;
 
 static const char* trace_spaces(int delta) {
-    int i = trace_depth + delta;
-    if (i < 0) i = 0;
-    if (i > 7) i = 7;
-    return unit_spaces[i];
+    return get_spaces(trace_depth + delta);
 }
 
 static void printer_tracing(int cmd, struct unit_test* unit, const char* msg) {
@@ -390,8 +403,8 @@ static void printer_xml_doctest(int cmd, struct unit_test* node, const char* msg
         case UNIT__PRINTER_FAIL:
             fputs(unit__spaces(0), f);
             fprintf(f, "<Expression success=\"%s\" type=\"%s\" filename=\"%s\" line=\"%d\">\n",
-                    node->status != UNIT_STATUS_FAILED ? "true" : "false", "REQUIRE", node->assert_file,
-                    node->assert_line);
+                    node->status != UNIT_STATUS_FAILED ? "true" : "false", "REQUIRE",
+                    beautify_filename(node->assert_file), node->assert_line);
             fputs(unit__spaces(1), f);
             fprintf(f, "<Original>\n");
             fputs(unit__spaces(1), f);

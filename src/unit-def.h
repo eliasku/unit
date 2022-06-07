@@ -101,12 +101,17 @@ extern struct unit_test* unit_tests;
 extern struct unit_test* unit_cur;
 
 struct unit_run_options {
-    int color;
+    int version;
+    int help;
+    int list;
+    int ascii;
     int trace;
-    int silent;
+    int quiet;
     int animate;
     int doctest_xml;
+    int short_filenames;
     unsigned seed;
+    const char* program;
 };
 
 extern struct unit_run_options unit__opts;

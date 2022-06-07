@@ -43,9 +43,8 @@ void* vector_get(vector* vec, size_t idx) {
 }
 
 #define UNIT_MAIN
-#define UNIT_NO_FILEPOS
 #define UNIT_NO_TIME
-//#define UNIT_DEFAULT_ARGS "--no-colors", "--trace"
+//#define UNIT_DEFAULT_ARGS "--ascii", "--trace"
 #include <unit.h>
 
 SUITE(vector) {
