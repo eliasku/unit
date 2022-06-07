@@ -1,5 +1,13 @@
 # @ekx/unit
 
+## 0.0.7
+
+### Patch Changes
+
+- 882c062: Change `--no-color` to `--ascii`
+- 882c062: add `--version`, `--help`, `--list`, `--short-filenames` options to CLI
+- 882c062: Rename `--silent` switch to `--quiet`
+
 ## 0.0.6
 
 ### Patch Changes
