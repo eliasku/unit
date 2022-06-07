@@ -5,7 +5,7 @@
 
 ## 🥼 Tiny unit testing library for C language 🥼
 
-[![Standard](https://img.shields.io/badge/C-11/14/17-pink.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![Standard](https://img.shields.io/badge/C-11-pink.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Download](https://img.shields.io/badge/Download%20%20-unit.h-lightgreen.svg)](https://raw.githubusercontent.com/eliasku/unit/master/include/unit.h)
 [![Documentation](https://img.shields.io/badge/docs-latest-white)](http://unit.rtfd.io/)
@@ -66,5 +66,5 @@ SUITE( suite name ) {
 - Crash tests and signal interception
 - Fuzz testing
 
-> In any case, if you have a desire, you can support and contribute! Feel free to ask me any **feature** you need **
-> Thank you for your interest!** 
+> In any case, if you have a desire, you can support and contribute! Feel free to ask me any **feature** you need. 
+> **Thank you for your interest!** 
